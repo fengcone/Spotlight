@@ -213,6 +213,10 @@ class SearchViewController: ObservableObject {
         guard selectedIndex < searchResults.count else { return }
         let result = searchResults[selectedIndex]
         
+        // 记录使用历史（用于智能排序）
+        UsageHistory.shared.recordUsage(path: result.path)
+        log("🚀 执行: \(result.title) (\(result.path))")
+        
         switch result.type {
         case .application:
             // 使用新的 API

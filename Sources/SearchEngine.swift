@@ -59,14 +59,90 @@ class SearchEngine {
     func search(query: String) async -> [SearchResult] {
         guard !query.isEmpty else { return [] }
         
-        // 按优先级分别搜索并排序
-        let appResults = searchApplications(query: query).sorted { $0.score > $1.score }
-        let bookmarkResults = searchChromeBookmarks(query: query).sorted { $0.score > $1.score }
-        let historyResults = configManager.browserHistoryEnabled ? searchBrowserHistory(query: query).sorted { $0.score > $1.score } : []
+        // 按优先级分别搜索
+        let appResults = searchApplications(query: query)
+        let bookmarkResults = searchChromeBookmarks(query: query)
+        let historyResults = configManager.browserHistoryEnabled ? searchBrowserHistory(query: query) : []
         
-        // 合并，保持优先级：应用 > 书签 > 历史
+        // 合并所有结果
         let combined = appResults + bookmarkResults + historyResults
-        return Array(combined.prefix(10))
+        
+        // 去重：相同 path 只保留一个
+        var seenPaths = Set<String>()
+        let uniqueResults = combined.filter { result in
+            if seenPaths.contains(result.path) {
+                return false
+            }
+            seenPaths.insert(result.path)
+            return true
+        }
+        
+        // 关键修复：完全不匹配（分数=0）的结果直接过滤掉
+        let matchedResults = uniqueResults.filter { $0.score > 0 }
+        
+        // 智能排序：结合匹配分数、类型优先级和使用历史
+        let sorted = matchedResults.sorted { a, b in
+            // 获取使用权重
+            let aWeight = UsageHistory.shared.getUsageWeight(path: a.path)
+            let bWeight = UsageHistory.shared.getUsageWeight(path: b.path)
+            
+            // 分数越高，匹配度越好
+            // 80-100: 包含/前缀/精确匹配
+            // 1-70: 逼字符匹配
+            
+            // 关键策略：只有当两个都是高分匹配（>= 50）时，才考虑使用历史
+            let highScoreThreshold = 50.0
+            let aIsHighScore = a.score >= highScoreThreshold
+            let bIsHighScore = b.score >= highScoreThreshold
+            
+            // 如果只有一个高分匹配，优先显示它
+            if aIsHighScore && !bIsHighScore {
+                return true
+            }
+            if !aIsHighScore && bIsHighScore {
+                return false
+            }
+            
+            // 两个都是高分匹配，考虑使用历史
+            if aIsHighScore && bIsHighScore {
+                // 如果使用权重差异较大，优先按权重排序
+                if abs(aWeight - bWeight) > 1.0 {
+                    return aWeight > bWeight
+                }
+                
+                // 否则按类型优先级
+                let aTypePriority = typePriority(a.type)
+                let bTypePriority = typePriority(b.type)
+                
+                if aTypePriority != bTypePriority {
+                    return aTypePriority < bTypePriority
+                }
+                
+                // 同类型下，按匹配分数
+                return a.score > b.score
+            }
+            
+            // 两个都是低分匹配，直接按分数排序，忽略使用历史
+            if a.score != b.score {
+                return a.score > b.score
+            }
+            
+            // 分数相同，按类型优先级
+            let aTypePriority = typePriority(a.type)
+            let bTypePriority = typePriority(b.type)
+            return aTypePriority < bTypePriority
+        }
+        
+        return Array(sorted.prefix(10))
+    }
+    
+    // 类型优先级：数字越小优先级越高
+    private func typePriority(_ type: SearchResultType) -> Int {
+        switch type {
+        case .application: return 1
+        case .url: return 2  // 书签和历史都是 url
+        case .file: return 3
+        }
     }
     
     // MARK: - 应用程序搜索

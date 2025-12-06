@@ -19,6 +19,7 @@ SOURCES=(
     "Sources/SearchEngine.swift"
     "Sources/SettingsView.swift"
     "Sources/Logger.swift"
+    "Sources/UsageHistory.swift"
 )
 
 # 输出目录
