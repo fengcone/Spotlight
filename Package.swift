@@ -10,7 +10,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "Spotlight",
-            dependencies: []
+            dependencies: [],
+            exclude: ["main_simple.swift"]  // 排除简化版本
         )
     ]
 )

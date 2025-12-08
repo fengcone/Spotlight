@@ -242,6 +242,7 @@ class SearchViewController: ObservableObject {
 
 struct SearchView: View {
     @ObservedObject var controller: SearchViewController
+    @State private var searchTask: Task<Void, Never>?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -281,8 +282,19 @@ struct SearchView: View {
                 .fill(Color(NSColor.windowBackgroundColor).opacity(0.95))
                 .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
         )
-        .onChange(of: controller.searchText) {
-            controller.performSearch()
+        .onChange(of: controller.searchText) { _ in
+            // 取消之前的搜索任务
+            searchTask?.cancel()
+            
+            // 防抖：延迟 150ms 执行搜索
+            searchTask = Task {
+                try? await Task.sleep(nanoseconds: 150_000_000)  // 150ms
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        controller.performSearch()
+                    }
+                }
+            }
         }
     }
 }

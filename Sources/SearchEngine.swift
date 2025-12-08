@@ -29,6 +29,10 @@ class SearchEngine {
     private var historyRefreshTimer: Timer?  // 历史记录刷新定时器
     private var lastHistoryLoadTime: Date?   // 上次加载历史的时间
     
+    // 性能优化：缓存上次搜索结果
+    private var lastQuery: String = ""
+    private var lastResults: [SearchResult] = []
+    
     init(configManager: ConfigManager) {
         self.configManager = configManager
         log("🎉 SearchEngine 初始化开始...")
@@ -71,6 +75,13 @@ class SearchEngine {
     func search(query: String) async -> [SearchResult] {
         guard !query.isEmpty else { return [] }
         
+        // 性能优化：如果查询没变，直接返回缓存结果
+        if query == lastQuery {
+            return lastResults
+        }
+        
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
         // 按优先级分别搜索
         let appResults = searchApplications(query: query)
         let bookmarkResults = searchChromeBookmarks(query: query)
@@ -94,15 +105,7 @@ class SearchEngine {
         
         // 智能排序：结合匹配分数、类型优先级和使用历史
         let sorted = matchedResults.sorted { a, b in
-            // 获取使用权重
-            let aWeight = UsageHistory.shared.getUsageWeight(path: a.path)
-            let bWeight = UsageHistory.shared.getUsageWeight(path: b.path)
-            
-            // 分数越高，匹配度越好
-            // 80-100: 包含/前缀/精确匹配
-            // 1-70: 逼字符匹配
-            
-            // 关键策略：只有当两个都是高分匹配（>= 50）时，才考虑使用历史
+            // 性能优化：只对高分匹配的结果计算使用权重，避免不必要的计算
             let highScoreThreshold = 50.0
             let aIsHighScore = a.score >= highScoreThreshold
             let bIsHighScore = b.score >= highScoreThreshold
@@ -117,6 +120,10 @@ class SearchEngine {
             
             // 两个都是高分匹配，考虑使用历史
             if aIsHighScore && bIsHighScore {
+                // 获取使用权重
+                let aWeight = UsageHistory.shared.getUsageWeight(path: a.path)
+                let bWeight = UsageHistory.shared.getUsageWeight(path: b.path)
+                
                 // 如果使用权重差异较大，优先按权重排序
                 if abs(aWeight - bWeight) > 1.0 {
                     return aWeight > bWeight
@@ -145,7 +152,16 @@ class SearchEngine {
             return aTypePriority < bTypePriority
         }
         
-        return Array(sorted.prefix(10))
+        let results = Array(sorted.prefix(10))
+        
+        // 缓存结果
+        lastQuery = query
+        lastResults = results
+        
+        let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
+        log("⏱️ 搜索耗时: \(String(format: "%.2f", elapsed))ms, 结果: \(results.count) 条")
+        
+        return results
     }
     
     // 类型优先级：数字越小优先级越高
@@ -212,9 +228,21 @@ class SearchEngine {
     private func refreshBrowserHistory() {
         log("🔄 刷新浏览器历史...")
         let oldCount = browserHistoryCache.count
+        
+        // 防御性检查：如果累加过多，警告并重置
+        if oldCount > 10000 {
+            log("⚠️ 检测到异常大量历史记录 (\(oldCount) 条)，重置缓存...", level: .warning)
+            browserHistoryCache.removeAll()
+        }
+        
         loadChromeHistory()  // 重新加载
         let newCount = browserHistoryCache.count
         log("✅ 历史记录已刷新：旧 \(oldCount) 条 → 新 \(newCount) 条")
+        
+        // 防御性检查：如果新数据异常，警告
+        if newCount > 1000 {
+            log("⚠️ 刷新后历史记录数量异常 (\(newCount) 条)，预期为 500 条", level: .warning)
+        }
     }
     
     // 将 Chrome 时间戳转换为 Swift Date
@@ -344,7 +372,8 @@ class SearchEngine {
                     )
                 }
                 
-                browserHistoryCache.append(contentsOf: items)
+                browserHistoryCache = items  // 修复：替换而非累加
+                lastHistoryLoadTime = Date()  // 记录加载时间
                 closeSQLiteDatabase(db)
                 log("✅ Chrome 历史加载完成，共 \(items.count) 条记录")
             } else {
@@ -478,23 +507,15 @@ class SearchEngine {
             
             guard baseScore > 0 else { return nil }
             
+            // 性能优化：简化权重计算
             // 计算时间权重：越近访问的权重越高
-            let daysSinceVisit = now.timeIntervalSince(item.lastVisitTime) / 86400.0  // 天数
-            let timeWeight: Double
-            if daysSinceVisit < 1 {
-                timeWeight = 2.0      // 24小时内：2倍权重
-            } else if daysSinceVisit < 7 {
-                timeWeight = 1.5      // 7天内：1.5倍
-            } else if daysSinceVisit < 30 {
-                timeWeight = 1.2      // 30天内：1.2倍
-            } else {
-                timeWeight = 1.0      // 超过30天：正常权重
-            }
+            let daysSinceVisit = now.timeIntervalSince(item.lastVisitTime) / 86400.0
+            let timeWeight = daysSinceVisit < 7 ? 1.3 : 1.0  // 简化：7天内1.3倍，其他正常
             
-            // 计算访问次数权重：使用对数避免过大差异
-            let visitWeight = 1.0 + log10(Double(item.visitCount + 1)) * 0.5
+            // 计算访问次数权重：简化计算
+            let visitWeight = item.visitCount > 10 ? 1.2 : 1.0  // 简化：访问超过10次给1.2倍
             
-            // 综合分数 = 匹配分数 × 时间权重 × 访问次数权重
+            // 综合分数
             let finalScore = baseScore * timeWeight * visitWeight
             
             return SearchResult(
