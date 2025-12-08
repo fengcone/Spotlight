@@ -26,6 +26,8 @@ class SearchEngine {
     private var applicationCache: [ApplicationInfo] = []
     private var browserHistoryCache: [BrowserHistoryItem] = []
     private var browserBookmarksCache: [BrowserBookmarkItem] = []
+    private var historyRefreshTimer: Timer?  // 历史记录刷新定时器
+    private var lastHistoryLoadTime: Date?   // 上次加载历史的时间
     
     init(configManager: ConfigManager) {
         self.configManager = configManager
@@ -48,12 +50,22 @@ class SearchEngine {
             log("✅ 浏览器历史已启用，开始加载...")
             loadBrowserHistory()
             log("✅ 浏览器历史加载完成，共 \(browserHistoryCache.count) 条")
+            
+            // 启动定时器，每 30 秒刷新一次历史记录
+            startHistoryRefreshTimer()
         } else {
             log("⚠️ 浏览器历史未启用", level: .warning)
         }
         
         log("✅ SearchEngine 初始化完成")
         log("📊 总计: 应用 \(applicationCache.count) 个, 书签 \(browserBookmarksCache.count) 条, 历史 \(browserHistoryCache.count) 条")
+    }
+    
+    deinit {
+        // 清理定时器
+        historyRefreshTimer?.invalidate()
+        historyRefreshTimer = nil
+        log("🗑️ SearchEngine 释放，已停止定时器")
     }
     
     func search(query: String) async -> [SearchResult] {
@@ -151,7 +163,8 @@ class SearchEngine {
         let fileManager = FileManager.default
         let applicationsPaths = [
             "/Applications",
-            NSHomeDirectory() + "/Applications"
+            NSHomeDirectory() + "/Applications",
+            "/System/Applications"
         ]
         
         for path in applicationsPaths {
@@ -185,6 +198,34 @@ class SearchEngine {
     }
     
     // MARK: - 浏览器历史搜索
+    
+    // 启动定时器，定期刷新历史记录
+    private func startHistoryRefreshTimer() {
+        // 每 30 秒刷新一次
+        historyRefreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            self?.refreshBrowserHistory()
+        }
+        log("⏰ 历史记录定时刷新已启动（每 30 秒）")
+    }
+    
+    // 刷新浏览器历史（增量或全量）
+    private func refreshBrowserHistory() {
+        log("🔄 刷新浏览器历史...")
+        let oldCount = browserHistoryCache.count
+        loadChromeHistory()  // 重新加载
+        let newCount = browserHistoryCache.count
+        log("✅ 历史记录已刷新：旧 \(oldCount) 条 → 新 \(newCount) 条")
+    }
+    
+    // 将 Chrome 时间戳转换为 Swift Date
+    // Chrome 使用从 1601-01-01 00:00:00 UTC 开始的微秒数
+    private func convertChromeTimeToDate(_ chromeTime: Int64) -> Date {
+        // 1601-01-01 到 1970-01-01 的微秒数
+        let epochDifference: Int64 = 11644473600000000
+        let unixTimeMicros = chromeTime - epochDifference
+        let unixTimeSeconds = Double(unixTimeMicros) / 1_000_000.0
+        return Date(timeIntervalSince1970: unixTimeSeconds)
+    }
     
     private func loadBrowserHistory() {
         // 仅加载 Chrome 历史
@@ -230,20 +271,26 @@ class SearchEngine {
                     let query = """
                         SELECT url, title, visit_count, last_visit_time
                         FROM urls
-                        ORDER BY visit_count DESC, last_visit_time DESC
+                        ORDER BY last_visit_time DESC
                         LIMIT 500
                     """
                     
                     let items = executeSQLQuery(db: db, query: query) { row in
-                        BrowserHistoryItem(
+                        // Chrome 的 last_visit_time 是从 1601-01-01 开始的微秒数
+                        let chromeTimestamp = row[3] as? Int64 ?? 0
+                        let appleTimestamp = convertChromeTimeToDate(chromeTimestamp)
+                        
+                        return BrowserHistoryItem(
                             url: row[0] as? String ?? "",
                             title: row[1] as? String ?? "",
                             visitCount: row[2] as? Int ?? 0,
+                            lastVisitTime: appleTimestamp,
                             source: .chrome
                         )
                     }
                     
-                    browserHistoryCache.append(contentsOf: items)
+                    browserHistoryCache = items  // 替换整个缓存
+                    lastHistoryLoadTime = Date()  // 记录加载时间
                     closeSQLiteDatabase(db)
                     log("✅ Chrome 历史加载完成，共 \(items.count) 条记录")
                     return
@@ -286,10 +333,13 @@ class SearchEngine {
                 """
                 
                 let items = executeSQLQuery(db: db, query: query) { row in
-                    BrowserHistoryItem(
+                    let lastVisitTimeValue = row[3] as? Int64 ?? 0
+                    let lastVisitDate = Date(timeIntervalSince1970: Double(lastVisitTimeValue) / 1000000.0 - 11644473600.0)
+                    return BrowserHistoryItem(
                         url: row[0] as? String ?? "",
                         title: row[1] as? String ?? "",
                         visitCount: row[2] as? Int ?? 0,
+                        lastVisitTime: lastVisitDate,
                         source: .chrome
                     )
                 }
@@ -419,13 +469,33 @@ class SearchEngine {
     
     private func searchBrowserHistory(query: String) -> [SearchResult] {
         let lowercasedQuery = query.lowercased()
+        let now = Date()
         
         return browserHistoryCache.compactMap { item in
             let titleScore = fuzzyMatch(query: lowercasedQuery, target: item.title.lowercased())
             let urlScore = fuzzyMatch(query: lowercasedQuery, target: item.url.lowercased())
-            let score = max(titleScore, urlScore) * (1 + log10(Double(item.visitCount + 1)))
+            let baseScore = max(titleScore, urlScore)
             
-            guard score > 0 else { return nil }
+            guard baseScore > 0 else { return nil }
+            
+            // 计算时间权重：越近访问的权重越高
+            let daysSinceVisit = now.timeIntervalSince(item.lastVisitTime) / 86400.0  // 天数
+            let timeWeight: Double
+            if daysSinceVisit < 1 {
+                timeWeight = 2.0      // 24小时内：2倍权重
+            } else if daysSinceVisit < 7 {
+                timeWeight = 1.5      // 7天内：1.5倍
+            } else if daysSinceVisit < 30 {
+                timeWeight = 1.2      // 30天内：1.2倍
+            } else {
+                timeWeight = 1.0      // 超过30天：正常权重
+            }
+            
+            // 计算访问次数权重：使用对数避免过大差异
+            let visitWeight = 1.0 + log10(Double(item.visitCount + 1)) * 0.5
+            
+            // 综合分数 = 匹配分数 × 时间权重 × 访问次数权重
+            let finalScore = baseScore * timeWeight * visitWeight
             
             return SearchResult(
                 title: item.title.isEmpty ? item.url : item.title,
@@ -435,7 +505,7 @@ class SearchEngine {
                 icon: item.source == .chrome ? 
                     NSWorkspace.shared.icon(forFile: "/Applications/Google Chrome.app") :
                     NSWorkspace.shared.icon(forFile: "/Applications/Safari.app"),
-                score: score
+                score: finalScore
             )
         }
     }
@@ -569,5 +639,6 @@ struct BrowserHistoryItem {
     let url: String
     let title: String
     let visitCount: Int
+    let lastVisitTime: Date  // 最后访问时间
     let source: BrowserSource
 }
