@@ -20,6 +20,7 @@ SOURCES=(
     "Sources/SettingsView.swift"
     "Sources/Logger.swift"
     "Sources/UsageHistory.swift"
+    "Sources/DictionaryService.swift"
 )
 
 # 输出目录

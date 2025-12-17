@@ -7,6 +7,7 @@ enum SearchResultType {
     case application
     case url
     case file
+    case dictionary  // 词典翻译
 }
 
 // 搜索结果
@@ -84,11 +85,12 @@ class SearchEngine {
         
         // 按优先级分别搜索
         let appResults = searchApplications(query: query)
+        let dictResults = await searchDictionary(query: query)  // 词典搜索
         let bookmarkResults = searchChromeBookmarks(query: query)
         let historyResults = configManager.browserHistoryEnabled ? searchBrowserHistory(query: query) : []
         
         // 合并所有结果
-        let combined = appResults + bookmarkResults + historyResults
+        let combined = appResults + dictResults + bookmarkResults + historyResults
         
         // 去重：相同 path 只保留一个
         var seenPaths = Set<String>()
@@ -168,9 +170,34 @@ class SearchEngine {
     private func typePriority(_ type: SearchResultType) -> Int {
         switch type {
         case .application: return 1
-        case .url: return 2  // 书签和历史都是 url
-        case .file: return 3
+        case .dictionary: return 2  // 词典翻译
+        case .url: return 3  // 书签和历史都是 url
+        case .file: return 4
         }
+    }
+    
+    // MARK: - 词典搜索
+    
+    private func searchDictionary(query: String) async -> [SearchResult] {
+        // 判断是否为英文单词
+        guard DictionaryService.shared.isEnglishWord(query) else {
+            return []
+        }
+        
+        // 查询系统词典
+        guard let entry = await DictionaryService.shared.lookup(word: query) else {
+            return []
+        }
+        
+        // 构造搜索结果
+        return [SearchResult(
+            title: entry.word,
+            subtitle: entry.shortTranslation,
+            path: "dict://\(entry.word)",  // 使用特殊协议标记词典结果
+            type: .dictionary,
+            icon: NSImage(systemSymbolName: "book.closed", accessibilityDescription: "词典"),
+            score: 95.0  // 高分，但不超过精确匹配的应用
+        )]
     }
     
     // MARK: - 应用程序搜索

@@ -145,6 +145,7 @@ class SearchViewController: ObservableObject {
     @Published var searchText: String = ""
     @Published var searchResults: [SearchResult] = []
     @Published var selectedIndex: Int = 0
+    @Published var dictionaryDetail: DictionaryEntry?  // 词典详情
     
     let configManager: ConfigManager
     var onDismiss: (() -> Void)?
@@ -165,11 +166,15 @@ class SearchViewController: ObservableObject {
         searchText = ""
         searchResults = []
         selectedIndex = 0
+        dictionaryDetail = nil  // 清除词典详情
         log("✅ 搜索状态已重置")
     }
     
     func performSearch() {
         log("🔍 执行搜索: '\(searchText)'")
+        
+        // 清除词典详情（开始新搜索时）
+        dictionaryDetail = nil
         
         // 如果搜索文本为空，清空结果
         if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -222,17 +227,29 @@ class SearchViewController: ObservableObject {
             // 使用新的 API
             let url = URL(filePath: result.path)
             NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+            onDismiss?()
         case .url:
             if let url = URL(string: result.path) {
                 NSWorkspace.shared.open(url)
             }
+            onDismiss?()
         case .file:
             // 使用新的 API
             let url = URL(filePath: result.path)
             NSWorkspace.shared.open(url)
+            onDismiss?()
+        case .dictionary:
+            // 词典结果：显示详情，不关闭窗口
+            Task {
+                let word = result.title
+                if let entry = await DictionaryService.shared.lookup(word: word) {
+                    await MainActor.run {
+                        self.dictionaryDetail = entry
+                        log("📖 显示词典详情: \(word)")
+                    }
+                }
+            }
         }
-        
-        onDismiss?()
     }
     
     func dismiss() {
@@ -251,8 +268,16 @@ struct SearchView: View {
                 .frame(height: 60)  // 固定高度
                 .padding(.horizontal)
             
+            // 词典详情区域
+            if let detail = controller.dictionaryDetail {
+                Divider()
+                DictionaryDetailView(entry: detail, onClose: {
+                    controller.dictionaryDetail = nil
+                })
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
             // 搜索结果列表
-            if !controller.searchResults.isEmpty {
+            else if !controller.searchResults.isEmpty {
                 Divider()
                 
                 ScrollView {
@@ -381,7 +406,13 @@ struct SearchTextField: NSViewRepresentable {
                 controller.executeSelected()
                 return true
             case #selector(NSResponder.cancelOperation(_:)):
-                log("⎋ Escape 键")
+                log("⏋ Escape 键")
+                // 如果正在显示词典详情，关闭详情
+                if controller.dictionaryDetail != nil {
+                    controller.dictionaryDetail = nil
+                    return true
+                }
+                // 否则关闭窗口
                 controller.dismiss()
                 return true
             default:
@@ -419,5 +450,57 @@ struct SearchResultRow: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
+    }
+}
+
+// MARK: - 词典详情视图
+
+struct DictionaryDetailView: View {
+    let entry: DictionaryEntry
+    let onClose: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // 标题栏
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "book.closed.fill")
+                        .foregroundColor(.blue)
+                    Text(entry.word)
+                        .font(.system(size: 20, weight: .bold))
+                    if let phonetic = entry.phonetic {
+                        Text("/\(phonetic)/")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                        .imageScale(.large)
+                }
+                .buttonStyle(.plain)
+                .help("关闭词典详情")
+            }
+            
+            Divider()
+            
+            // 详细释义
+            ScrollView {
+                Text(entry.fullTranslation)
+                    .font(.system(size: 14, design: .default))
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineSpacing(4)  // 增加行间距
+                    .textSelection(.enabled)
+                    .padding(.vertical, 4)
+            }
+            .frame(maxHeight: 250)
+        }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor))
     }
 }
