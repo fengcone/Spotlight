@@ -280,21 +280,30 @@ struct SearchView: View {
             else if !controller.searchResults.isEmpty {
                 Divider()
                 
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(Array(controller.searchResults.enumerated()), id: \.offset) { index, result in
-                            SearchResultRow(
-                                result: result,
-                                isSelected: index == controller.selectedIndex
-                            )
-                            .onTapGesture {
-                                controller.selectedIndex = index
-                                controller.executeSelected()
+                ScrollViewReader { scrollProxy in
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(controller.searchResults.enumerated()), id: \.offset) { index, result in
+                                SearchResultRow(
+                                    result: result,
+                                    isSelected: index == controller.selectedIndex
+                                )
+                                .id(index)  // 为每个行添加唯一ID
+                                .onTapGesture {
+                                    controller.selectedIndex = index
+                                    controller.executeSelected()
+                                }
                             }
                         }
                     }
+                    .frame(height: 330)  // 固定高度
+                    // 当选中项变化时，自动滚动到可见区域
+                    .onChange(of: controller.selectedIndex) { newIndex in
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            scrollProxy.scrollTo(newIndex, anchor: .center)
+                        }
+                    }
                 }
-                .frame(height: 330)  // 固定高度
             } else {
                 // 没有结果时显示占位空间，保持窗口大小
                 Spacer()
