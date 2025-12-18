@@ -560,7 +560,49 @@ class SearchEngine {
     
     // MARK: - 模糊匹配算法
     
-    private func fuzzyMatch(query: String, target: String) -> Double {
+    /// 多关键词模糊匹配（AND 逻辑）
+    /// 查询字符串按空格分割成多个关键词，所有关键词都必须匹配才返回有效分数
+    private func multiKeywordFuzzyMatch(query: String, target: String) -> Double {
+        guard !query.isEmpty, !target.isEmpty else { return 0 }
+        
+        let lowercasedTarget = target.lowercased()
+        
+        // 按空格分割关键词，过滤空字符串
+        let keywords = query.lowercased()
+            .split(separator: " ")
+            .map { String($0).trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        
+        // 如果没有有效关键词，返回 0
+        guard !keywords.isEmpty else { return 0 }
+        
+        // 单关键词时，使用原有逻辑
+        if keywords.count == 1 {
+            return singleKeywordMatch(query: keywords[0], target: lowercasedTarget)
+        }
+        
+        // 多关键词时，所有关键词都必须匹配（AND 逻辑）
+        var scores: [Double] = []
+        
+        for keyword in keywords {
+            let score = singleKeywordMatch(query: keyword, target: lowercasedTarget)
+            if score <= 0 {
+                // 任一关键词不匹配，直接返回 0
+                return 0
+            }
+            scores.append(score)
+        }
+        
+        // 返回所有关键词匹配分数的最小值（短板原理）
+        // 同时给予少量加分，奖励多关键词匹配
+        let minScore = scores.min() ?? 0
+        let matchBonus = Double(keywords.count - 1) * 2.0  // 每多一个关键词加 2 分
+        
+        return min(minScore + matchBonus, 100.0)
+    }
+    
+    /// 单关键词匹配（原有逻辑）
+    private func singleKeywordMatch(query: String, target: String) -> Double {
         guard !query.isEmpty, !target.isEmpty else { return 0 }
         
         // 精确匹配
@@ -596,6 +638,11 @@ class SearchEngine {
         }
         
         return 0
+    }
+    
+    /// 保留原有 fuzzyMatch 接口，现在支持多关键词
+    private func fuzzyMatch(query: String, target: String) -> Double {
+        return multiKeywordFuzzyMatch(query: query, target: target)
     }
     
     // MARK: - SQLite 辅助方法
