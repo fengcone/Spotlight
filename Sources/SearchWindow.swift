@@ -54,8 +54,8 @@ class SearchWindow: NSWindow {
         // 居中显示
         center()
         
-        // 不显示在任务切换器中
-        collectionBehavior = [.canJoinAllSpaces, .stationary]
+        // 不显示在任务切换器中，但支持全屏空间
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         
         log("✅ 窗口属性设置完成")
     }
@@ -85,8 +85,14 @@ class SearchWindow: NSWindow {
     func show() {
         log("\n🔍 ========== 显示搜索窗口 ==========")
         
-        // 重新居中 - 使用更精确的居中算法
-        if let screen = NSScreen.main {
+        // 根本修复：使用鼠标位置确定当前屏幕，而不是 NSScreen.main
+        // 这样无论用户在哪个屏幕（包括全屏应用），窗口都会显示在正确的屏幕上
+        let mouseLocation = NSEvent.mouseLocation
+        let currentScreen = NSScreen.screens.first { screen in
+            NSMouseInRect(mouseLocation, screen.frame, false)
+        } ?? NSScreen.main ?? NSScreen.screens.first
+        
+        if let screen = currentScreen {
             let screenRect = screen.visibleFrame
             let windowRect = frame
             
@@ -94,6 +100,8 @@ class SearchWindow: NSWindow {
             let x = screenRect.midX - windowRect.width / 2
             let y = screenRect.midY + screenRect.height / 4
             
+            log("📍 鼠标位置: (\(mouseLocation.x), \(mouseLocation.y))")
+            log("📺 当前屏幕: \(screen.localizedName)")
             log("📍 窗口位置: (\(x), \(y))")
             log("📊 窗口大小: \(windowRect.width) x \(windowRect.height)")
             setFrameOrigin(NSPoint(x: x, y: y))
