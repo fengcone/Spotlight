@@ -267,7 +267,7 @@ class SearchEngine {
             return SearchResult(
                 title: "[\(project.ideName)] \(project.name)",
                 subtitle: project.path,
-                path: "ide://\(project.ideName.lowercased())/\(project.path)",
+                path: "ide://\(project.prefix)/\(project.path)",  // 使用 prefix 构建路径
                 type: .ideProject,
                 icon: project.appIcon,
                 score: score

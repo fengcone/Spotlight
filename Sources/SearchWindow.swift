@@ -272,6 +272,7 @@ class SearchViewController: ObservableObject {
                             name: "",
                             path: projectPath,
                             ideName: ideMatch.config.name,
+                            prefix: ideMatch.config.prefix,
                             appPath: (ideMatch.config.appPath as NSString).expandingTildeInPath,
                             urlScheme: ideMatch.config.urlScheme,
                             appIcon: NSWorkspace.shared.icon(forFile: (ideMatch.config.appPath as NSString).expandingTildeInPath)

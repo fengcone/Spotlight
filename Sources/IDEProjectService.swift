@@ -25,6 +25,7 @@ struct IDEProject {
     let name: String           // 项目名称
     let path: String           // 项目完整路径
     let ideName: String        // IDE 名称
+    let prefix: String         // IDE 前缀（用于路径构建）
     let appPath: String        // IDE 应用路径
     let urlScheme: String      // 打开 URL
     let appIcon: NSImage?      // IDE 应用图标
@@ -252,6 +253,7 @@ class IDEProjectService {
                                     name: projectName,
                                     path: path,
                                     ideName: config.name,
+                                    prefix: config.prefix,
                                     appPath: (config.appPath as NSString).expandingTildeInPath,
                                     urlScheme: config.urlScheme,
                                     appIcon: NSWorkspace.shared.icon(forFile: (config.appPath as NSString).expandingTildeInPath)
@@ -333,6 +335,7 @@ class IDEProjectService {
                     name: projectName,
                     path: fullPath,
                     ideName: config.name,
+                    prefix: config.prefix,
                     appPath: (config.appPath as NSString).expandingTildeInPath,
                     urlScheme: config.urlScheme,
                     appIcon: NSWorkspace.shared.icon(forFile: (config.appPath as NSString).expandingTildeInPath)
