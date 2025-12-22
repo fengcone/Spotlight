@@ -203,7 +203,7 @@ class SearchEngine {
                 subtitle: project.path,
                 path: "ide://\(prefix)/\(project.path)",  // 特殊协议标记
                 type: .ideProject,
-                icon: NSImage(systemSymbolName: project.iconName, accessibilityDescription: config.name),
+                icon: project.appIcon,  // 使用 IDE 应用本身的图标
                 score: score
             )
         }

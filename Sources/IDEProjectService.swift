@@ -9,9 +9,9 @@ struct IDEConfig: Codable {
     let name: String
     let prefix: String
     let type: String           // "jetbrains" 或 "vscode"
+    let appPath: String        // IDE 应用路径，用于获取图标
     let recentProjectsPath: String
     let urlScheme: String
-    let icon: String
     let enabled: Bool
 }
 
@@ -26,7 +26,7 @@ struct IDEProject {
     let path: String           // 项目完整路径
     let ideName: String        // IDE 名称
     let urlScheme: String      // 打开 URL
-    let iconName: String       // 图标名
+    let appIcon: NSImage?      // IDE 应用图标
 }
 
 // MARK: - IDE 项目服务
@@ -225,7 +225,7 @@ class IDEProjectService {
                                     path: path,
                                     ideName: config.name,
                                     urlScheme: config.urlScheme,
-                                    iconName: config.icon
+                                    appIcon: NSWorkspace.shared.icon(forFile: (config.appPath as NSString).expandingTildeInPath)
                                 )
                                 projects.append(project)
                             }
@@ -305,7 +305,7 @@ class IDEProjectService {
                     path: fullPath,
                     ideName: config.name,
                     urlScheme: config.urlScheme,
-                    iconName: config.icon
+                    appIcon: NSWorkspace.shared.icon(forFile: (config.appPath as NSString).expandingTildeInPath)
                 )
                 projectsWithTimestamp.append(ProjectWithTimestamp(project: project, timestamp: timestamp))
             }

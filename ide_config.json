@@ -4,27 +4,27 @@
       "name": "Qoder",
       "prefix": "qo",
       "type": "vscode",
+      "appPath": "/Applications/Qoder.app",
       "recentProjectsPath": "~/Library/Application Support/Qoder/User/globalStorage/state.vscdb",
       "urlScheme": "qoder://file",
-      "icon": "hammer.fill",
       "enabled": true
     },
     {
       "name": "GoLand",
       "prefix": "gl",
       "type": "jetbrains",
+      "appPath": "~/Applications/GoLand.app",
       "recentProjectsPath": "~/Library/Application Support/JetBrains/GoLand2025.2/options/recentProjects.xml",
       "urlScheme": "goland://open?file=",
-      "icon": "chevron.left.forwardslash.chevron.right",
       "enabled": true
     },
     {
       "name": "CLion",
       "prefix": "cl",
       "type": "jetbrains",
+      "appPath": "~/Applications/CLion.app",
       "recentProjectsPath": "~/Library/Application Support/JetBrains/CLion2024.3/options/recentProjects.xml",
       "urlScheme": "clion://open?file=",
-      "icon": "c.square.fill",
       "enabled": true
     }
   ]
