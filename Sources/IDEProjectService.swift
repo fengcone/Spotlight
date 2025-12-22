@@ -25,6 +25,7 @@ struct IDEProject {
     let name: String           // 项目名称
     let path: String           // 项目完整路径
     let ideName: String        // IDE 名称
+    let appPath: String        // IDE 应用路径
     let urlScheme: String      // 打开 URL
     let appIcon: NSImage?      // IDE 应用图标
 }
@@ -251,6 +252,7 @@ class IDEProjectService {
                                     name: projectName,
                                     path: path,
                                     ideName: config.name,
+                                    appPath: (config.appPath as NSString).expandingTildeInPath,
                                     urlScheme: config.urlScheme,
                                     appIcon: NSWorkspace.shared.icon(forFile: (config.appPath as NSString).expandingTildeInPath)
                                 )
@@ -331,6 +333,7 @@ class IDEProjectService {
                     name: projectName,
                     path: fullPath,
                     ideName: config.name,
+                    appPath: (config.appPath as NSString).expandingTildeInPath,
                     urlScheme: config.urlScheme,
                     appIcon: NSWorkspace.shared.icon(forFile: (config.appPath as NSString).expandingTildeInPath)
                 )
@@ -358,13 +361,13 @@ class IDEProjectService {
     
     /// 用对应 IDE 打开项目
     func openProject(_ project: IDEProject) {
-        // 使用 open -a 命令打开项目（更可靠）
+        // 使用 open 命令直接打开应用（通过应用路径，更可靠）
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-a", project.ideName, project.path]
+        process.arguments = ["-a", project.appPath, project.path]
         
         do {
-            log("🚀 打开项目: \(project.name) -> open -a \(project.ideName) \(project.path)")
+            log("🚀 打开项目: \(project.name) -> open -a \(project.appPath) \(project.path)")
             try process.run()
         } catch {
             log("⚠️ 打开项目失败: \(error.localizedDescription)", level: .warning)

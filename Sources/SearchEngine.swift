@@ -106,6 +106,8 @@ class SearchEngine {
             return (keyword, .ideProject("qo"))
         case "gl":
             return (keyword, .ideProject("gl"))
+        case "py":
+            return (keyword, .ideProject("py"))
         case "ap":
             return (keyword, .application)
         case "ch":

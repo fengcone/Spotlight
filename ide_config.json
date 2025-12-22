@@ -26,6 +26,15 @@
       "recentProjectsPath": "~/Library/Application Support/JetBrains/CLion2024.3/options/recentProjects.xml",
       "urlScheme": "clion://open?file=",
       "enabled": true
+    },
+    {
+      "name": "PyCharm",
+      "prefix": "py",
+      "type": "jetbrains",
+      "appPath": "~/Applications/PyCharm Professional Edition.app",
+      "recentProjectsPath": "~/Library/Application Support/JetBrains/PyCharm2024.3/options/recentProjects.xml",
+      "urlScheme": "pycharm://open?file=",
+      "enabled": true
     }
   ]
 }
