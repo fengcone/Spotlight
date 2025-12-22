@@ -98,11 +98,12 @@ class SearchEngine {
         // 按优先级分别搜索
         let appResults = searchApplications(query: query)
         let dictResults = await searchDictionary(query: query)  // 词典搜索
+        let ideProjectResults = searchAllIDEProjects(query: query)  // IDE 项目搜索
         let bookmarkResults = searchChromeBookmarks(query: query)
         let historyResults = configManager.browserHistoryEnabled ? searchBrowserHistory(query: query) : []
         
         // 合并所有结果
-        let combined = appResults + dictResults + bookmarkResults + historyResults
+        let combined = appResults + dictResults + ideProjectResults + bookmarkResults + historyResults
         
         // 去重：相同 path 只保留一个
         var seenPaths = Set<String>()
@@ -191,6 +192,26 @@ class SearchEngine {
     
     // MARK: - IDE 项目搜索
     
+    /// 搜索所有 IDE 的项目（常规搜索，不需要魔法前缀）
+    private func searchAllIDEProjects(query: String) -> [SearchResult] {
+        let projects = IDEProjectService.shared.searchAllProjects(keyword: query)
+        
+        return projects.map { project in
+            // 计算分数：IDE项目给予较高分数
+            let score = 85.0  // 与应用程序类似的高分
+            
+            return SearchResult(
+                title: "[\(project.ideName)] \(project.name)",
+                subtitle: project.path,
+                path: "ide://\(project.ideName.lowercased())/\(project.path)",
+                type: .ideProject,
+                icon: project.appIcon,
+                score: score
+            )
+        }
+    }
+    
+    /// 搜索指定 IDE 的项目（魔法前缀搜索）
     private func searchIDEProjects(prefix: String, keyword: String, config: IDEConfig) -> [SearchResult] {
         let projects = IDEProjectService.shared.searchProjects(prefix: prefix, keyword: keyword)
         

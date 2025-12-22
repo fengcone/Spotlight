@@ -113,7 +113,27 @@ class IDEProjectService {
     
     // MARK: - 项目搜索
     
-    /// 搜索 IDE 项目
+    /// 搜索所有 IDE 的项目（用于常规搜索，不需要魔法前缀）
+    func searchAllProjects(keyword: String) -> [IDEProject] {
+        guard !keyword.isEmpty else { return [] }
+        
+        var allMatched: [IDEProject] = []
+        let lowercasedKeyword = keyword.lowercased()
+        
+        for config in ideConfigs {
+            let projects = getProjects(for: config)
+            let matched = projects.filter { project in
+                project.name.lowercased().contains(lowercasedKeyword) ||
+                project.path.lowercased().contains(lowercasedKeyword)
+            }
+            allMatched.append(contentsOf: matched)
+        }
+        
+        // 限制返回数量
+        return Array(allMatched.prefix(10))
+    }
+
+    /// 搜索指定 IDE 的项目（用于魔法前缀搜索）
     func searchProjects(prefix: String, keyword: String) -> [IDEProject] {
         guard let config = ideConfigs.first(where: { $0.prefix == prefix }) else {
             return []
@@ -331,16 +351,16 @@ class IDEProjectService {
     
     /// 用对应 IDE 打开项目
     func openProject(_ project: IDEProject) {
-        let urlString = project.urlScheme + project.path
+        // 使用 open -a 命令打开项目（更可靠）
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = ["-a", project.ideName, project.path]
         
-        // URL 编码
-        guard let encodedURL = urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: encodedURL) else {
-            log("⚠️ 无法构建 URL: \(urlString)", level: .warning)
-            return
+        do {
+            log("🚀 打开项目: \(project.name) -> open -a \(project.ideName) \(project.path)")
+            try process.run()
+        } catch {
+            log("⚠️ 打开项目失败: \(error.localizedDescription)", level: .warning)
         }
-        
-        log("🚀 打开项目: \(project.name) -> \(url)")
-        NSWorkspace.shared.open(url)
     }
 }
