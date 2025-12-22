@@ -8,6 +8,7 @@ enum SearchResultType {
     case url
     case file
     case dictionary  // 词典翻译
+    case ideProject  // IDE 项目
 }
 
 // 搜索结果
@@ -82,6 +83,17 @@ class SearchEngine {
         }
         
         let startTime = CFAbsoluteTimeGetCurrent()
+        
+        // 检查是否是 IDE 项目搜索（魔法前缀）
+        if let ideMatch = IDEProjectService.shared.parseIDEPrefix(query: query) {
+            let ideResults = searchIDEProjects(prefix: ideMatch.prefix, keyword: ideMatch.keyword, config: ideMatch.config)
+            lastQuery = query
+            lastResults = ideResults
+            
+            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
+            log("⚙️ IDE 项目搜索耗时: \(String(format: "%.2f", elapsed))ms, 结果: \(ideResults.count) 条")
+            return ideResults
+        }
         
         // 按优先级分别搜索
         let appResults = searchApplications(query: query)
@@ -170,9 +182,30 @@ class SearchEngine {
     private func typePriority(_ type: SearchResultType) -> Int {
         switch type {
         case .application: return 1
+        case .ideProject: return 1  // IDE 项目与应用同级
         case .dictionary: return 2  // 词典翻译
         case .url: return 3  // 书签和历史都是 url
         case .file: return 4
+        }
+    }
+    
+    // MARK: - IDE 项目搜索
+    
+    private func searchIDEProjects(prefix: String, keyword: String, config: IDEConfig) -> [SearchResult] {
+        let projects = IDEProjectService.shared.searchProjects(prefix: prefix, keyword: keyword)
+        
+        return projects.enumerated().map { index, project in
+            // 计算分数：按顺序递减，第一个最高分
+            let score = 100.0 - Double(index)
+            
+            return SearchResult(
+                title: "[\(config.name)] \(project.name)",
+                subtitle: project.path,
+                path: "ide://\(prefix)/\(project.path)",  // 特殊协议标记
+                type: .ideProject,
+                icon: NSImage(systemSymbolName: project.iconName, accessibilityDescription: config.name),
+                score: score
+            )
         }
     }
     

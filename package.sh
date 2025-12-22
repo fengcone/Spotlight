@@ -1,39 +1,138 @@
 #!/bin/bash
 
-# Spotlight 应用打包脚本
-# 将编译好的二进制文件打包成 macOS .app 格式
+# =============================================================================
+# Spotlight 统一构建和打包脚本
+# 
+# 用法:
+#   ./package.sh          # 编译并打包
+#   ./package.sh build    # 仅编译
+#   ./package.sh package  # 仅打包（需先编译）
+#   ./package.sh clean    # 清理构建产物
+# =============================================================================
 
 set -e
 
+# 配置
 APP_NAME="Spotlight"
 BUNDLE_ID="com.custom.spotlight"
 VERSION="1.0.0"
 BUILD_DIR=".build"
-APP_DIR="${BUILD_DIR}/${APP_NAME}.app"
-CONTENTS_DIR="${APP_DIR}/Contents"
-MACOS_DIR="${CONTENTS_DIR}/MacOS"
-RESOURCES_DIR="${CONTENTS_DIR}/Resources"
+BINARY_PATH="${BUILD_DIR}/Spotlight"
+APP_PATH="${BUILD_DIR}/${APP_NAME}.app"
 
-echo "📦 开始打包 ${APP_NAME}.app..."
+# 颜色输出
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# 1. 先编译
-echo "🔨 编译应用..."
-./build.sh
+# 源文件列表
+SOURCES=(
+    "Sources/main.swift"
+    "Sources/AppDelegate.swift"
+    "Sources/ConfigManager.swift"
+    "Sources/GlobalHotKeyMonitor.swift"
+    "Sources/SearchWindow.swift"
+    "Sources/SearchEngine.swift"
+    "Sources/SettingsView.swift"
+    "Sources/Logger.swift"
+    "Sources/UsageHistory.swift"
+    "Sources/DictionaryService.swift"
+    "Sources/IDEProjectService.swift"
+)
 
-# 2. 创建 .app 目录结构
-echo "📁 创建应用目录结构..."
-rm -rf "${APP_DIR}"
-mkdir -p "${MACOS_DIR}"
-mkdir -p "${RESOURCES_DIR}"
+# =============================================================================
+# 函数定义
+# =============================================================================
 
-# 3. 复制可执行文件
-echo "📋 复制可执行文件..."
-cp "${BUILD_DIR}/Spotlight" "${MACOS_DIR}/${APP_NAME}"
-chmod +x "${MACOS_DIR}/${APP_NAME}"
+show_help() {
+    echo "Spotlight 构建脚本"
+    echo ""
+    echo "用法: ./package.sh [命令]"
+    echo ""
+    echo "命令:"
+    echo "  (无参数)    编译并打包应用"
+    echo "  build       仅编译可执行文件"
+    echo "  package     仅打包应用（需先编译）"
+    echo "  clean       清理所有构建产物"
+    echo "  help        显示此帮助信息"
+    echo ""
+    echo "输出目录: ${BUILD_DIR}/"
+    echo "  - ${BINARY_PATH}     可执行文件"
+    echo "  - ${APP_PATH}        应用包"
+}
 
-# 4. 创建 Info.plist
-echo "📝 生成 Info.plist..."
-cat > "${CONTENTS_DIR}/Info.plist" << EOF
+check_xcode() {
+    if ! xcode-select -p &> /dev/null; then
+        echo -e "${RED}❌ 错误: Xcode 未安装或未选择${NC}"
+        echo "请安装 Xcode 并运行: sudo xcode-select --switch /Applications/Xcode.app"
+        exit 1
+    fi
+}
+
+do_build() {
+    echo -e "${BLUE}🔨 编译 Spotlight...${NC}"
+    
+    check_xcode
+    
+    # 创建输出目录
+    mkdir -p "$BUILD_DIR"
+    
+    # 编译
+    echo "正在编译源文件..."
+    swiftc -o "$BINARY_PATH" \
+        -framework Cocoa \
+        -framework SwiftUI \
+        -framework Carbon \
+        -import-objc-header <(echo "") \
+        "${SOURCES[@]}"
+    
+    # 应用 entitlements
+    if [ -f "Spotlight.entitlements" ]; then
+        echo "应用权限配置..."
+        codesign --entitlements Spotlight.entitlements -s - "$BINARY_PATH" 2>/dev/null || true
+    fi
+    
+    echo -e "${GREEN}✅ 编译成功!${NC}"
+    echo -e "   可执行文件: ${BINARY_PATH}"
+}
+
+do_package() {
+    echo -e "${BLUE}📦 打包 ${APP_NAME}.app...${NC}"
+    
+    # 检查可执行文件是否存在
+    if [ ! -f "$BINARY_PATH" ]; then
+        echo -e "${RED}❌ 错误: 找不到 ${BINARY_PATH}${NC}"
+        echo "请先运行: ./package.sh build"
+        exit 1
+    fi
+    
+    # 清理旧的应用包
+    if [ -d "$APP_PATH" ]; then
+        rm -rf "$APP_PATH"
+    fi
+    
+    # 创建目录结构
+    CONTENTS_DIR="${APP_PATH}/Contents"
+    MACOS_DIR="${CONTENTS_DIR}/MacOS"
+    RESOURCES_DIR="${CONTENTS_DIR}/Resources"
+    
+    mkdir -p "$MACOS_DIR"
+    mkdir -p "$RESOURCES_DIR"
+    
+    # 复制可执行文件
+    cp "$BINARY_PATH" "$MACOS_DIR/${APP_NAME}"
+    chmod +x "$MACOS_DIR/${APP_NAME}"
+    
+    # 复制配置文件
+    if [ -f "ide_config.json" ]; then
+        cp "ide_config.json" "$RESOURCES_DIR/"
+        echo "   已包含 ide_config.json"
+    fi
+    
+    # 创建 Info.plist
+    cat > "${CONTENTS_DIR}/Info.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -60,66 +159,76 @@ cat > "${CONTENTS_DIR}/Info.plist" << EOF
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
-    <key>NSSupportsAutomaticTermination</key>
-    <true/>
-    <key>NSAppleEventsUsageDescription</key>
-    <string>Spotlight 需要访问应用程序以实现快速启动功能</string>
-    <key>NSSystemAdministrationUsageDescription</key>
-    <string>Spotlight 需要访问系统设置以监听全局快捷键</string>
 </dict>
 </plist>
 EOF
+    
+    # 应用 entitlements
+    if [ -f "Spotlight.entitlements" ]; then
+        cp "Spotlight.entitlements" "${CONTENTS_DIR}/"
+        codesign --entitlements "Spotlight.entitlements" --force --sign - "${APP_PATH}" 2>/dev/null || true
+    fi
+    
+    echo -e "${GREEN}✅ 打包成功!${NC}"
+    echo ""
+    echo -e "📦 应用位置: ${APP_PATH}"
+}
 
-# 5. 创建图标（可选）
-echo "🎨 创建应用图标..."
-# 这里创建一个简单的图标占位符
-# 如果你有自定义图标，可以替换这部分
-cat > "${RESOURCES_DIR}/AppIcon.iconset/icon_512x512.png" << 'EOF' 2>/dev/null || true
-# 图标文件占位符
-EOF
+do_clean() {
+    echo -e "${YELLOW}🗑  清理构建产物...${NC}"
+    
+    # 清理 .build 目录中的自定义产物
+    rm -f "${BINARY_PATH}"
+    rm -rf "${APP_PATH}"
+    
+    # 清理根目录的遗留产物
+    rm -f "./Spotlight"
+    rm -rf "./Spotlight.app"
+    
+    echo -e "${GREEN}✅ 清理完成${NC}"
+}
 
-# 6. 设置权限
-echo "🔐 设置文件权限..."
-chmod -R 755 "${APP_DIR}"
+show_usage() {
+    echo ""
+    echo "🚀 使用方法:"
+    echo "   运行应用: open ${APP_PATH}"
+    echo "   或拖拽到 /Applications 文件夹"
+    echo ""
+    echo "⚠️  首次运行需要授权:"
+    echo "   1. 辅助功能权限 (必需)"
+    echo "      系统设置 → 隐私与安全性 → 辅助功能"
+    echo ""
+    echo "   2. 完全磁盘访问权限 (推荐)"
+    echo "      系统设置 → 隐私与安全性 → 完全磁盘访问权限"
+}
 
-# 7. 代码签名（应用 entitlements）
-if [ -f "Spotlight.entitlements" ]; then
-    echo "✍️  应用权限配置..."
-    # 复制 entitlements 到 app 内
-    cp "Spotlight.entitlements" "${CONTENTS_DIR}/"
-    # 代码签名（使用 ad-hoc 签名）
-    codesign --entitlements "Spotlight.entitlements" --force --sign - "${APP_DIR}" 2>/dev/null || {
-        echo "⚠️  代码签名失败，但不影响使用"
-    }
-fi
+# =============================================================================
+# 主程序
+# =============================================================================
 
-# 8. 完成
-echo ""
-echo "✅ 打包完成！"
-echo ""
-echo "📦 应用位置: ${APP_DIR}"
-echo ""
-echo "📍 安装方法:"
-echo "   方法1: 拖拽到 /Applications 目录"
-echo "          cp -r \"${APP_DIR}\" /Applications/"
-echo ""
-echo "   方法2: 拖拽到 ~/Applications 目录"
-echo "          mkdir -p ~/Applications"
-echo "          cp -r \"${APP_DIR}\" ~/Applications/"
-echo ""
-echo "⚠️  首次运行需要授予权限:"
-echo "   1. 辅助功能权限 (必需) - 用于监听全局快捷键"
-echo "      系统设置 → 隐私与安全性 → 辅助功能 → [+] Spotlight"
-echo ""
-echo "   2. 完全磁盘访问权限 (强烈推荐) - 用于读取 Chrome 书签和历史"
-echo "      系统设置 → 隐私与安全性 → 完全磁盘访问权限 → [+] Spotlight"
-echo ""
-echo "   ⚠️  如果不授予'完全磁盘访问权限'："
-echo "      - ✅ 可以搜索本地应用程序"
-echo "      - ❌ 无法读取 Chrome 书签"
-echo "      - ❌ 无法读取 Chrome 历史记录"
-echo ""
-echo "📚 详细权限配置指南请查看: PERMISSIONS.md"
-echo ""
-echo "🚀 直接运行: open \"${APP_DIR}\""
-echo ""
+case "${1:-}" in
+    "build")
+        do_build
+        ;;
+    "package")
+        do_package
+        ;;
+    "clean")
+        do_clean
+        ;;
+    "help"|"-h"|"--help")
+        show_help
+        ;;
+    "")
+        # 默认: 编译并打包
+        do_build
+        echo ""
+        do_package
+        show_usage
+        ;;
+    *)
+        echo -e "${RED}❌ 未知命令: $1${NC}"
+        show_help
+        exit 1
+        ;;
+esac

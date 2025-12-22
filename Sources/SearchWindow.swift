@@ -257,6 +257,29 @@ class SearchViewController: ObservableObject {
                     }
                 }
             }
+        case .ideProject:
+            // IDE 项目：解析路径并打开
+            // path 格式: ide://prefix/项目路径
+            if result.path.hasPrefix("ide://") {
+                let pathWithoutScheme = String(result.path.dropFirst(6))  // 去掉 "ide://"
+                if let firstSlash = pathWithoutScheme.firstIndex(of: "/") {
+                    let prefix = String(pathWithoutScheme[..<firstSlash])
+                    let projectPath = String(pathWithoutScheme[pathWithoutScheme.index(after: firstSlash)...])
+                    
+                    // 获取对应 IDE 的 URL Scheme
+                    if let ideMatch = IDEProjectService.shared.parseIDEPrefix(query: prefix) {
+                        let project = IDEProject(
+                            name: "",
+                            path: projectPath,
+                            ideName: ideMatch.config.name,
+                            urlScheme: ideMatch.config.urlScheme,
+                            iconName: ideMatch.config.icon
+                        )
+                        IDEProjectService.shared.openProject(project)
+                    }
+                }
+            }
+            onDismiss?()
         }
     }
     
