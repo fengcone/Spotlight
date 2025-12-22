@@ -88,6 +88,13 @@ class IDEProjectService {
         projectCache.removeAll()
     }
     
+    // MARK: - 配置获取
+    
+    /// 根据前缀获取 IDE 配置
+    func getConfig(for prefix: String) -> IDEConfig? {
+        return ideConfigs.first(where: { $0.prefix == prefix })
+    }
+    
     // MARK: - 前缀匹配
     
     /// 检查查询是否以 IDE 前缀开头

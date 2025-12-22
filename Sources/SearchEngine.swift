@@ -74,6 +74,51 @@ class SearchEngine {
         log("🗑️ SearchEngine 释放，已停止定时器")
     }
     
+    // MARK: - 后缀过滤器
+    
+    /// 搜索过滤器类型
+    enum SearchFilter {
+        case all                    // 无过滤，搜索所有
+        case ideProject(String)     // IDE 项目（带 IDE 前缀，如 cl/qo/gl）
+        case application            // 应用程序 (ap)
+        case chromeBookmark         // Chrome 书签 (ch)
+        case chromeHistory          // Chrome 历史 (hi)
+        case dictionary             // 词典 (di)
+    }
+    
+    /// 解析查询字符串，提取关键词和过滤器
+    private func parseQuery(_ query: String) -> (keyword: String, filter: SearchFilter) {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        let parts = trimmed.split(separator: " ").map { String($0) }
+        
+        guard parts.count >= 2 else {
+            return (trimmed, .all)
+        }
+        
+        // 检查最后一个部分是否是过滤后缀
+        let lastPart = parts.last!.lowercased()
+        let keyword = parts.dropLast().joined(separator: " ")
+        
+        switch lastPart {
+        case "cl":
+            return (keyword, .ideProject("cl"))
+        case "qo":
+            return (keyword, .ideProject("qo"))
+        case "gl":
+            return (keyword, .ideProject("gl"))
+        case "ap":
+            return (keyword, .application)
+        case "ch":
+            return (keyword, .chromeBookmark)
+        case "hi":
+            return (keyword, .chromeHistory)
+        case "di":
+            return (keyword, .dictionary)
+        default:
+            return (trimmed, .all)
+        }
+    }
+    
     func search(query: String) async -> [SearchResult] {
         guard !query.isEmpty else { return [] }
         
@@ -84,26 +129,43 @@ class SearchEngine {
         
         let startTime = CFAbsoluteTimeGetCurrent()
         
-        // 检查是否是 IDE 项目搜索（魔法前缀）
-        if let ideMatch = IDEProjectService.shared.parseIDEPrefix(query: query) {
-            let ideResults = searchIDEProjects(prefix: ideMatch.prefix, keyword: ideMatch.keyword, config: ideMatch.config)
-            lastQuery = query
-            lastResults = ideResults
+        // 解析查询，提取关键词和过滤器
+        let (keyword, filter) = parseQuery(query)
+        
+        var combined: [SearchResult] = []
+        
+        switch filter {
+        case .all:
+            // 搜索所有类型
+            let appResults = searchApplications(query: keyword)
+            let dictResults = await searchDictionary(query: keyword)
+            let ideProjectResults = searchAllIDEProjects(query: keyword)
+            let bookmarkResults = searchChromeBookmarks(query: keyword)
+            let historyResults = configManager.browserHistoryEnabled ? searchBrowserHistory(query: keyword) : []
+            combined = appResults + dictResults + ideProjectResults + bookmarkResults + historyResults
             
-            let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-            log("⚙️ IDE 项目搜索耗时: \(String(format: "%.2f", elapsed))ms, 结果: \(ideResults.count) 条")
-            return ideResults
+        case .ideProject(let prefix):
+            // 只搜索指定 IDE 的项目
+            if let config = IDEProjectService.shared.getConfig(for: prefix) {
+                combined = searchIDEProjects(prefix: prefix, keyword: keyword, config: config)
+            }
+            
+        case .application:
+            // 只搜索应用程序
+            combined = searchApplications(query: keyword)
+            
+        case .chromeBookmark:
+            // 只搜索 Chrome 书签
+            combined = searchChromeBookmarks(query: keyword)
+            
+        case .chromeHistory:
+            // 只搜索 Chrome 历史
+            combined = configManager.browserHistoryEnabled ? searchBrowserHistory(query: keyword) : []
+            
+        case .dictionary:
+            // 只搜索词典
+            combined = await searchDictionary(query: keyword)
         }
-        
-        // 按优先级分别搜索
-        let appResults = searchApplications(query: query)
-        let dictResults = await searchDictionary(query: query)  // 词典搜索
-        let ideProjectResults = searchAllIDEProjects(query: query)  // IDE 项目搜索
-        let bookmarkResults = searchChromeBookmarks(query: query)
-        let historyResults = configManager.browserHistoryEnabled ? searchBrowserHistory(query: query) : []
-        
-        // 合并所有结果
-        let combined = appResults + dictResults + ideProjectResults + bookmarkResults + historyResults
         
         // 去重：相同 path 只保留一个
         var seenPaths = Set<String>()
