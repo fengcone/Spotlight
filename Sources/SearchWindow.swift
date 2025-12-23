@@ -13,13 +13,21 @@ class SearchWindow: NSWindow {
         
         super.init(
             contentRect: windowRect,
-            styleMask: [.borderless, .titled, .fullSizeContentView],  // 移除 .nonactivatingPanel
+            styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         
         setupWindow()
         setupContentView()
+    }
+
+    override var canBecomeKey: Bool {
+        return true
+    }
+    
+    override var canBecomeMain: Bool {
+        return true
     }
     
     private func setupWindow() {
