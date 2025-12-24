@@ -14,7 +14,7 @@
       "prefix": "gl",
       "type": "jetbrains",
       "appPath": "~/Applications/GoLand.app",
-      "recentProjectsPath": "~/Library/Application Support/JetBrains/GoLand2025.2/options/recentProjects.xml",
+      "recentProjectsPath": "~/Library/Application Support/JetBrains/GoLand2025.3/options/recentProjects.xml",
       "urlScheme": "goland://open?file=",
       "enabled": true
     },
@@ -23,7 +23,7 @@
       "prefix": "cl",
       "type": "jetbrains",
       "appPath": "~/Applications/CLion.app",
-      "recentProjectsPath": "~/Library/Application Support/JetBrains/CLion2024.3/options/recentProjects.xml",
+      "recentProjectsPath": "~/Library/Application Support/JetBrains/CLion2025.3/options/recentProjects.xml",
       "urlScheme": "clion://open?file=",
       "enabled": true
     },
@@ -31,8 +31,8 @@
       "name": "PyCharm",
       "prefix": "py",
       "type": "jetbrains",
-      "appPath": "~/Applications/PyCharm Professional Edition.app",
-      "recentProjectsPath": "~/Library/Application Support/JetBrains/PyCharm2024.3/options/recentProjects.xml",
+      "appPath": "~/Applications/PyCharm.app",
+      "recentProjectsPath": "~/Library/Application Support/JetBrains/PyCharm2025.3/options/recentProjects.xml",
       "urlScheme": "pycharm://open?file=",
       "enabled": true
     }

@@ -364,16 +364,33 @@ class IDEProjectService {
     
     /// 用对应 IDE 打开项目
     func openProject(_ project: IDEProject) {
-        // 使用 open 命令直接打开应用（通过应用路径，更可靠）
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-a", project.appPath, project.path]
-        
-        do {
-            log("🚀 打开项目: \(project.name) -> open -a \(project.appPath) \(project.path)")
-            try process.run()
-        } catch {
-            log("⚠️ 打开项目失败: \(error.localizedDescription)", level: .warning)
+        let urlString = buildURLString(project.urlScheme, project.path)
+
+        if let url = URL(string: urlString) {
+            log("🚀 尝试使用 URL Scheme 打开: \(urlString)")
+            if NSWorkspace.shared.open(url) {
+                return
+            }
+            log("⚠️ URL Scheme 打开失败", level: .warning)
+        } else {
+            log("⚠️ URL Scheme 无效: \(urlString)", level: .warning)
+        }
+    }
+
+    /// 构建 URL 字符串
+    private func buildURLString(_ scheme: String, _ path: String) -> String {
+        if scheme.hasSuffix("=") {
+            // Query 参数形式: goland://open?file=PATH
+            let encodedPath = path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? path
+            return scheme + encodedPath
+        } else {
+            // 路径形式: vscode://file/PATH
+            var urlString = scheme
+            if !urlString.hasSuffix("/") && !path.hasPrefix("/") {
+                urlString += "/"
+            }
+            let encodedPath = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
+            return urlString + encodedPath
         }
     }
 }
