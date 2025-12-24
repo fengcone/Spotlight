@@ -719,7 +719,7 @@ class SearchEngine {
         return min(minScore + matchBonus, 100.0)
     }
     
-    /// 单关键词匹配（原有逻辑）
+    /// 单关键词匹配（严格子串匹配）
     private func singleKeywordMatch(query: String, target: String) -> Double {
         guard !query.isEmpty, !target.isEmpty else { return 0 }
         
@@ -733,28 +733,13 @@ class SearchEngine {
             return 90.0
         }
         
-        // 包含匹配
+        // 包含匹配（关键词必须作为完整子串出现）
         if target.contains(query) {
             return 80.0
         }
         
-        // 逐字符匹配（用于首字母缩写等）
-        var queryIndex = query.startIndex
-        var targetIndex = target.startIndex
-        var matchCount = 0
-        
-        while queryIndex < query.endIndex && targetIndex < target.endIndex {
-            if query[queryIndex] == target[targetIndex] {
-                matchCount += 1
-                queryIndex = query.index(after: queryIndex)
-            }
-            targetIndex = target.index(after: targetIndex)
-        }
-        
-        if matchCount == query.count {
-            return Double(matchCount) / Double(target.count) * 70.0
-        }
-        
+        // 不再支持逐字符匹配，避免误匹配
+        // 例如 "wlcb" 不应该匹配到散落的 w, l, c, b 字母
         return 0
     }
     
