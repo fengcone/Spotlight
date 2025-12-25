@@ -374,13 +374,60 @@ struct SearchView: View {
     }
 }
 
+// MARK: - 自定义 NSTextField，支持 Command+V/A/X/C 快捷键
+
+class EditableTextField: NSTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // 检查是否是 Command 键组合
+        guard event.modifierFlags.contains(.command) else {
+            return super.performKeyEquivalent(with: event)
+        }
+        
+        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        
+        switch key {
+        case "v":  // Command+V 粘贴
+            if NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: self) {
+                return true
+            }
+        case "c":  // Command+C 复制
+            if NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self) {
+                return true
+            }
+        case "x":  // Command+X 剪切
+            if NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: self) {
+                return true
+            }
+        case "a":  // Command+A 全选
+            if NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: self) {
+                return true
+            }
+        case "z":  // Command+Z 撤销
+            if event.modifierFlags.contains(.shift) {
+                // Command+Shift+Z 重做
+                if NSApp.sendAction(Selector(("redo:")), to: nil, from: self) {
+                    return true
+                }
+            } else {
+                if NSApp.sendAction(Selector(("undo:")), to: nil, from: self) {
+                    return true
+                }
+            }
+        default:
+            break
+        }
+        
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 struct SearchTextField: NSViewRepresentable {
     @Binding var text: String
     let controller: SearchViewController
     
     func makeNSView(context: Context) -> NSTextField {
         log("📝 创建 SearchTextField...")
-        let textField = NSTextField()
+        let textField = EditableTextField()  // 使用自定义的 TextField
         textField.placeholderString = "搜索应用、网址..."
         textField.font = .systemFont(ofSize: 24)
         textField.isBordered = false
