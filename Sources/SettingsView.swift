@@ -36,7 +36,7 @@ struct GeneralSettingsView: View {
         Form {
             Section(header: Text("浏览器历史")) {
                 Toggle("启用浏览器历史记录搜索", isOn: $configManager.browserHistoryEnabled)
-                    .onChange(of: configManager.browserHistoryEnabled) { _ in
+                    .onChange(of: configManager.browserHistoryEnabled) {
                         configManager.saveConfig()
                     }
                 

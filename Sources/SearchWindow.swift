@@ -339,7 +339,7 @@ struct SearchView: View {
                     }
                     .frame(height: 330)  // 固定高度
                     // 当选中项变化时，自动滚动到可见区域
-                    .onChange(of: controller.selectedIndex) { newIndex in
+                    .onChange(of: controller.selectedIndex) { _, newIndex in
                         withAnimation(.easeInOut(duration: 0.15)) {
                             scrollProxy.scrollTo(newIndex, anchor: .center)
                         }
@@ -357,7 +357,7 @@ struct SearchView: View {
                 .fill(Color(NSColor.windowBackgroundColor).opacity(0.95))
                 .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
         )
-        .onChange(of: controller.searchText) { _ in
+        .onChange(of: controller.searchText) {
             // 取消之前的搜索任务
             searchTask?.cancel()
             

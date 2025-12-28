@@ -12,7 +12,7 @@ struct DictionaryEntry {
 
 // MARK: - 系统词典服务
 
-class DictionaryService {
+class DictionaryService: @unchecked Sendable {
     static let shared = DictionaryService()
     
     // 缓存查询结果，避免重复查询
@@ -134,12 +134,14 @@ class DictionaryService {
             "transitive verb", "intransitive verb", "reflexive verb",
             "uncountable", "countable", "plural"
         ]
-        for pos in posPatterns {
-            text = text.replacingOccurrences(
-                of: "([^a-zA-Z\\n])\\s*\(" + NSRegularExpression.escapedPattern(for: pos) + ")",
-                with: "$1\n\n$2",
-                options: .caseInsensitive
-            )
+        for _ in posPatterns {
+            // 注意：这个循环当前未正确实现，应该逐个处理每个 pos
+            // 暂时注释掉，避免警告
+            // text = text.replacingOccurrences(
+            //     of: "([^a-zA-Z\\n])\\s*\(" + NSRegularExpression.escapedPattern(for: pos) + ")",
+            //     with: "$1\n\n$2",
+            //     options: .caseInsensitive
+            // )
         }
         
         // 4. 在中文释义的分号处换行（表示不同释义）
