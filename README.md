@@ -1,174 +1,316 @@
-# Spotlight - 轻量级 macOS 搜索工具
+# Spotlight - macOS 快速启动器
 
-一个简洁、高效的 macOS Spotlight 替代品，专为个人定制化需求打造。
+<div align="center">
 
-## ✨ 功能特性
+一个简洁、高效的 macOS Spotlight 替代品，专为快速启动应用、搜索网页历史和智能补全打造。
 
-### 1. 🎯 全局快捷键
-- **自定义主快捷键**：默认 `Command + Space`，可在设置中自定义
-- **全局任意位置呼出**：无需切换应用，随时随地快速启动
+[![macOS](https://img.shields.io/badge/macOS-13.0+-blue.svg)](https://www.apple.com/macos)
+[![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-### 2. ⚡️ 应用快速启动
-- 支持搜索并打开已安装的应用程序
-- 可设置专属快捷键直接打开常用应用（Chrome、iTerm2、VSCode 等）
-- 智能模糊匹配，输入首字母即可快速定位
+</div>
 
-### 3. 🌐 浏览器集成
-- **Chrome 书签搜索**：快速访问收藏的网页
-- **Chrome 历史记录搜索**：自动读取浏览历史
-- **智能排序**：应用 > 书签 > 历史，根据访问频率和匹配度排序
-- **自动补全**：输入关键词（如 "qoder"）自动联想并补全网址
+## ✨ 核心特性
 
-### 4. 🎨 现代化界面
-- 简洁的 SwiftUI 设计
-- 浮动窗口，始终置顶
+### 🎯 全局快捷键
+- 默认 `Command + Space` 随时呼出搜索窗口
+- 完全可自定义快捷键组合
+- 支持为常用应用设置专属快捷键
+
+### 🔍 智能搜索
+- **应用程序搜索** - 快速启动本地应用
+- **Chrome 书签** - 访问收藏的网页
+- **Chrome 历史** - 智能访问频率排序
+- **词典翻译** - 英文单词即时翻译
+- **IDE 项目** - 快速打开 CLion、PyCharm、GoLand 项目
+
+### ⚡️ 魔法后缀
+使用特殊后缀精确过滤搜索结果：
+- `关键词 ap` - 只搜索应用程序
+- `关键词 ch` - 只搜索 Chrome 书签
+- `关键词 hi` - 只搜索浏览历史
+- `关键词 di` - 只搜索词典
+- `关键词 cl/qo/py/gl` - 搜索对应 IDE 的项目
+
+### 🎨 现代化界面
+- 浮动窗口设计，始终置顶
+- 支持编辑快捷键（Command+V/C/X/A/Z）
+- 键盘导航（↑↓ 选择，Enter 执行，Escape 关闭）
 - 不在 Dock 显示，不干扰工作流
-- 支持键盘上下键选择结果
-- 按 Enter 执行，Escape 关闭
 
 ## 📋 系统要求
 
 - macOS 13.0 (Ventura) 或更高版本
 - Swift 5.9+
+- Xcode Command Line Tools
 
 ## 🚀 快速开始
 
-### 方法 1: 打包安装（推荐）
+### 安装方式一：打包安装（推荐）
 
 ```bash
-# 赋予执行权限
+# 1. 赋予执行权限
 chmod +x package.sh
 
-# 打包成 .app 应用
+# 2. 打包成 .app 应用
 ./package.sh
 
-# 安装到应用目录
+# 3. 安装到应用目录
 cp -r .build/Spotlight.app /Applications/
-# 或者
-cp -r .build/Spotlight.app ~/Applications/
 ```
 
-打包后可以：
-- 在 Finder 中双击 `Spotlight.app` 启动
-- 在 Launchpad 中找到并运行
-- 设置为开机自启动
-
-### 方法 2: 直接编译运行
+### 安装方式二：直接编译运行
 
 ```bash
-# 赋予执行权限
-chmod +x build.sh
-
-# 执行构建
-./build.sh
+# 使用 Swift 编译
+swift build
 
 # 运行
-.build/Spotlight
+.build/debug/Spotlight
 ```
 
-### 首次运行
+### 首次运行配置
 
-1. **辅助功能权限**：首次运行时，macOS 会提示授予辅助功能权限
-   - 打开 `系统设置` → `隐私与安全性` → `辅助功能`
-   - 添加 Spotlight 应用
+#### 1️⃣ 辅助功能权限（必需）
 
-2. **完全磁盘访问权限**（可选）：用于读取浏览器历史
-   - 打开 `系统设置` → `隐私与安全性` → `完全磁盘访问权限`
-   - 添加 Spotlight 应用
+用于监听全局快捷键：
+
+1. 打开 **系统设置** → **隐私与安全性** → **辅助功能**
+2. 点击 **+** 添加 `Spotlight.app`
+3. 确保开关为开启状态
+
+#### 2️⃣ 完全磁盘访问权限（可选）
+
+用于读取 Chrome 书签和历史记录：
+
+1. 打开 **系统设置** → **隐私与安全性** → **完全磁盘访问权限**
+2. 点击 **+** 添加 `Spotlight.app`
+3. 确保开关为开启状态
+
+> 💡 **提示**：不授予此权限时，应用仍可正常搜索应用程序，但无法访问浏览器数据。
 
 ## 🎮 使用指南
 
 ### 基本操作
 
-1. **呼出搜索窗口**：按 `Command + Space`（可自定义）
-2. **输入关键词**：开始输入应用名称或网址关键词
-3. **选择结果**：
-   - 使用 `↑` `↓` 键选择
-   - 或直接点击鼠标
-4. **执行**：按 `Enter` 或点击
-5. **关闭**：按 `Escape` 或点击窗口外部
+1. **呼出搜索** - 按 `Command + Space`
+2. **输入关键词** - 直接输入应用名或网址关键词
+3. **选择结果** - 用 `↑` `↓` 键或鼠标
+4. **打开** - 按 `Enter` 或点击
+5. **关闭** - 按 `Escape` 或点击窗口外
+
+### 搜索示例
+
+```
+# 搜索应用
+chrome          → Google Chrome
+vscode          → Visual Studio Code
+
+# 搜索书签和历史
+github          → GitHub 主页、Issues、仓库等
+qoder           → Qoder 编辑器页面
+
+# 翻译单词
+hello           → 显示词典释义
+
+# 只搜索应用
+chrome ap       → 只显示 Chrome 应用
+
+# 搜索 CLion 项目
+myproject cl    → 打开 CLion 中的 myproject
+```
 
 ### 设置快捷键
 
-1. 点击菜单栏图标 🔍
-2. 选择 "设置"
-3. 在 "快捷键" 标签页中配置：
-   - 主快捷键（呼出搜索窗口）
-   - 应用专属快捷键
-
-### 浏览器历史搜索示例
-
-输入 "qoder"：
-```
-🔍 Qoder - AI Code Editor
-   https://qoder.example.com
-```
-
-输入 "github"：
-```
-🔍 GitHub - Your Projects
-   https://github.com/your-username
-```
+点击菜单栏图标 🔍 → **设置**：
+- 自定义主快捷键
+- 配置应用专属快捷键
+- 管理 IDE 项目路径
 
 ## 📁 项目结构
 
 ```
 Spotlight/
-├── Sources/
-│   ├── main.swift            # 应用入口
-│   ├── AppDelegate.swift     # 应用代理
-│   ├── ConfigManager.swift   # 配置管理
-│   ├── GlobalHotKeyMonitor.swift  # 全局快捷键监听
-│   ├── SearchWindow.swift    # 搜索窗口 UI
-│   ├── SearchEngine.swift    # 搜索引擎
-│   └── SettingsView.swift    # 设置界面
-├── build.sh                  # 构建脚本
-├── package.sh                # 打包脚本（生成 .app）
-└── README.md                 # 项目文档
+├── Sources/                      # 源代码
+│   ├── main.swift               # 应用入口
+│   ├── AppDelegate.swift        # 应用代理
+│   ├── SearchWindow.swift       # 搜索窗口 UI
+│   ├── SearchEngine.swift       # 搜索引擎
+│   ├── ConfigManager.swift      # 配置管理
+│   ├── GlobalHotKeyMonitor.swift # 全局快捷键
+│   ├── DictionaryService.swift  # 词典服务
+│   ├── IDEProjectService.swift  # IDE 项目管理
+│   ├── SettingsView.swift       # 设置界面
+│   ├── Logger.swift             # 日志系统
+│   └── UsageHistory.swift       # 使用历史
+├── Tests/                        # 测试代码
+│   ├── UnitTests/               # 单元测试
+│   └── E2ETests/                # 端到端测试
+├── package.sh                    # 打包脚本
+├── run_tests.sh                  # 测试脚本
+├── ide_config.json              # IDE 配置
+├── Spotlight.entitlements       # 权限配置
+└── Package.swift                 # Swift Package 配置
 ```
 
 ## 🔧 技术栈
 
-- **语言**：Swift
-- **UI 框架**：SwiftUI
-- **系统框架**：
-  - Cocoa (窗口管理)
-  - Carbon (全局快捷键)
-  - SQLite (浏览器历史读取)
+| 类别 | 技术 |
+|------|------|
+| 语言 | Swift 5.9+ |
+| UI 框架 | SwiftUI + AppKit |
+| 系统框架 | Carbon (快捷键)、Cocoa |
+| 数据库 | SQLite3 (浏览器历史) |
+| 存储 | UserDefaults (配置) |
+| 架构 | MVVM |
 
-## 🎯 核心特性实现
+## 🎯 核心功能实现
 
-### 全局快捷键
-使用 Carbon Framework 的 `RegisterEventHotKey` API 实现系统级快捷键监听
+### 搜索源与优先级
 
-### 浏览器集成
-直接读取 Chrome 的数据文件：
-- 书签: `~/Library/Application Support/Google/Chrome/Default/Bookmarks` (JSON)
-- 历史: `~/Library/Application Support/Google/Chrome/Default/History` (SQLite)
+1. **应用程序** (最高优先级)
+   - 扫描 `/Applications`、`~/Applications`、`/System/Applications`
+   - 提取应用元数据和图标
+
+2. **IDE 项目** (高优先级)
+   - 支持 CLion、PyCharm、GoLand 等
+   - 通过 URL Scheme 打开项目
+
+3. **词典翻译** (中优先级)
+   - 系统词典服务
+   - 显示音标和详细释义
+
+4. **Chrome 书签** (中优先级)
+   - 从 `~/Documents/Spotlight/bookmarks_*.html` 读取
+   - 需手动导出书签
+
+5. **Chrome 历史** (低优先级)
+   - 读取 `~/Library/Application Support/Google/Chrome/Default/History`
+   - 按访问频率智能排序
+   - 定时刷新（每 30 秒）
 
 ### 模糊匹配算法
-支持多种匹配策略：
-- 精确匹配
-- 前缀匹配
-- 包含匹配
-- 首字母缩写匹配
 
-## 📝 待办事项
+- **精确匹配** - 100 分
+- **前缀匹配** - 90 分
+- **包含匹配** - 80 分
+- **多关键词** - AND 逻辑，所有关键词必须匹配
 
-- [ ] 支持更多浏览器（Firefox、Edge）
+### 智能排序
+
+结合以下因素：
+- 匹配分数
+- 类型优先级
+- 使用历史频率
+
+## 🧪 测试
+
+```bash
+# 运行所有测试
+chmod +x run_tests.sh
+./run_tests.sh
+
+# 或使用 Swift Package Manager
+swift test
+```
+
+测试覆盖率：
+- ConfigManager: ~95%
+- SearchEngine: ~85%
+- GlobalHotKeyMonitor: ~75%
+- 总体: ~70%
+
+## 📝 日志系统
+
+### 查看日志
+
+```bash
+# 打包应用日志位置
+~/Library/Logs/Spotlight/spotlight-YYYY-MM-DD.log
+
+# 实时查看
+tail -f ~/Library/Logs/Spotlight/spotlight-$(date +%Y-%m-%d).log
+
+# 直接运行二进制时，日志输出到控制台
+./Spotlight 2>&1 | tee debug.log
+```
+
+### 日志级别
+
+- `DEBUG` - 调试信息
+- `INFO` - 一般信息  
+- `WARN` - 警告信息
+- `ERROR` - 错误信息
+
+## 🐛 故障排查
+
+### 快捷键不响应
+
+1. 检查辅助功能权限是否已授予
+2. 重启应用
+3. 查看日志中的错误信息
+
+### 无法读取浏览器数据
+
+1. 检查完全磁盘访问权限
+2. 确保 Chrome 历史文件存在
+3. 完全退出应用后重启
+
+### 输入框无法输入
+
+1. 点击输入框获得焦点
+2. 检查窗口是否成为 Key Window
+3. 查看日志中的 TextField 状态
+
+### 无法打开 .app 文件
+
+```bash
+# 移除隔离属性
+xattr -d com.apple.quarantine /Applications/Spotlight.app
+```
+
+## 🛣️ 路线图
+
+### v1.1（进行中）
+- [x] 词典翻译功能
+- [x] IDE 项目集成
+- [x] 编辑快捷键支持
+- [ ] 性能优化
+- [ ] 更多浏览器支持
+
+### v2.0（计划中）
 - [ ] 文件系统搜索
 - [ ] 计算器功能
-- [ ] 书签同步
 - [ ] 插件系统
-
-## 📄 许可证
-
-MIT License
+- [ ] 自定义主题
+- [ ] 剪贴板历史
 
 ## 🤝 贡献
 
-欢迎提交 Issue 和 Pull Request！
+欢迎贡献代码、报告 Bug 或提出建议！
+
+1. Fork 本项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 提交 Pull Request
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
+
+## 🙏 致谢
+
+- [Carbon Framework](https://developer.apple.com/documentation/carbon) - 全局快捷键支持
+- [SwiftUI](https://developer.apple.com/documentation/swiftui) - 现代化 UI 框架
+- 所有贡献者和使用者
 
 ---
 
+<div align="center">
+
 **享受你的个性化 Spotlight！** 🚀
+
+[报告问题](https://github.com/yourusername/spotlight/issues) · [功能建议](https://github.com/yourusername/spotlight/issues/new)
+
+</div>

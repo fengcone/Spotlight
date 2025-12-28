@@ -17,3 +17,7 @@ xcuserdata/
 
 # User settings
 *.xcuserdatad
+
+# Logs
+*.log
+test.log
