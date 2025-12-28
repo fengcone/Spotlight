@@ -79,7 +79,7 @@ class SearchEngine {
     /// 搜索过滤器类型
     enum SearchFilter {
         case all                    // 无过滤，搜索所有
-        case ideProject(String)     // IDE 项目（带 IDE 前缀，如 cl/qo/gl）
+        case ideProject(IDEConfig)  // IDE 项目（带配置对象）
         case application            // 应用程序 (ap)
         case chromeBookmark         // Chrome 书签 (ch)
         case chromeHistory          // Chrome 历史 (hi)
@@ -89,6 +89,13 @@ class SearchEngine {
     /// 解析查询字符串，提取关键词和过滤器
     private func parseQuery(_ query: String) -> (keyword: String, filter: SearchFilter) {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
+        
+        // 优先检查是否包含 IDE 关键词（支持前缀/后缀）
+        if let ideMatch = IDEProjectService.shared.parseIDEPrefix(query: trimmed) {
+            return (ideMatch.keyword, .ideProject(ideMatch.config))
+        }
+        
+        // 其他魔法后缀匹配
         let parts = trimmed.split(separator: " ").map { String($0) }
         
         guard parts.count >= 2 else {
@@ -100,14 +107,6 @@ class SearchEngine {
         let keyword = parts.dropLast().joined(separator: " ")
         
         switch lastPart {
-        case "cl":
-            return (keyword, .ideProject("cl"))
-        case "qo":
-            return (keyword, .ideProject("qo"))
-        case "gl":
-            return (keyword, .ideProject("gl"))
-        case "py":
-            return (keyword, .ideProject("py"))
         case "ap":
             return (keyword, .application)
         case "ch":
@@ -146,11 +145,9 @@ class SearchEngine {
             let historyResults = configManager.browserHistoryEnabled ? searchBrowserHistory(query: keyword) : []
             combined = appResults + dictResults + ideProjectResults + bookmarkResults + historyResults
             
-        case .ideProject(let prefix):
+        case .ideProject(let config):
             // 只搜索指定 IDE 的项目
-            if let config = IDEProjectService.shared.getConfig(for: prefix) {
-                combined = searchIDEProjects(prefix: prefix, keyword: keyword, config: config)
-            }
+            combined = searchIDEProjects(keyword: keyword, config: config)
             
         case .application:
             // 只搜索应用程序
@@ -275,9 +272,9 @@ class SearchEngine {
         }
     }
     
-    /// 搜索指定 IDE 的项目（魔法前缀搜索）
-    private func searchIDEProjects(prefix: String, keyword: String, config: IDEConfig) -> [SearchResult] {
-        let projects = IDEProjectService.shared.searchProjects(prefix: prefix, keyword: keyword)
+    /// 搜索指定 IDE 的项目（魔法关键词搜索）
+    private func searchIDEProjects(keyword: String, config: IDEConfig) -> [SearchResult] {
+        let projects = IDEProjectService.shared.searchProjects(keyword: keyword, config: config)
         
         return projects.enumerated().map { index, project in
             // 计算分数：按顺序递减，第一个最高分
@@ -286,7 +283,7 @@ class SearchEngine {
             return SearchResult(
                 title: "[\(config.name)] \(project.name)",
                 subtitle: project.path,
-                path: "ide://\(prefix)/\(project.path)",  // 特殊协议标记
+                path: "ide://\(config.primaryPrefix)/\(project.path)",  // 特殊协议标记
                 type: .ideProject,
                 icon: project.appIcon,  // 使用 IDE 应用本身的图标
                 score: score

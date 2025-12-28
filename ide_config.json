@@ -2,7 +2,7 @@
   "ides": [
     {
       "name": "Qoder",
-      "prefix": "qo",
+      "prefixes": ["qo", "qoder"],
       "type": "vscode",
       "appPath": "/Applications/Qoder.app",
       "recentProjectsPath": "~/Library/Application Support/Qoder/User/globalStorage/state.vscdb",
@@ -11,7 +11,7 @@
     },
     {
       "name": "GoLand",
-      "prefix": "gl",
+      "prefixes": ["gl", "go", "goland"],
       "type": "jetbrains",
       "appPath": "~/Applications/GoLand.app",
       "recentProjectsPath": "~/Library/Application Support/JetBrains/GoLand2025.3/options/recentProjects.xml",
@@ -20,7 +20,7 @@
     },
     {
       "name": "CLion",
-      "prefix": "cl",
+      "prefixes": ["cl", "clion"],
       "type": "jetbrains",
       "appPath": "~/Applications/CLion.app",
       "recentProjectsPath": "~/Library/Application Support/JetBrains/CLion2025.3/options/recentProjects.xml",
@@ -29,7 +29,7 @@
     },
     {
       "name": "PyCharm",
-      "prefix": "py",
+      "prefixes": ["py", "pycharm", "python"],
       "type": "jetbrains",
       "appPath": "~/Applications/PyCharm.app",
       "recentProjectsPath": "~/Library/Application Support/JetBrains/PyCharm2025.3/options/recentProjects.xml",

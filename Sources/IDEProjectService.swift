@@ -7,12 +7,55 @@ import SQLite3
 /// IDE 配置
 struct IDEConfig: Codable {
     let name: String
-    let prefix: String
+    let prefixes: [String]    // 支持多个关键词（前缀/后缀）
     let type: String           // "jetbrains" 或 "vscode"
     let appPath: String        // IDE 应用路径，用于获取图标
     let recentProjectsPath: String
     let urlScheme: String
     let enabled: Bool
+    
+    // 为了向后兼容，支持从旧配置读取 prefix
+    enum CodingKeys: String, CodingKey {
+        case name, prefixes, prefix, type, appPath, recentProjectsPath, urlScheme, enabled
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        type = try container.decode(String.self, forKey: .type)
+        appPath = try container.decode(String.self, forKey: .appPath)
+        recentProjectsPath = try container.decode(String.self, forKey: .recentProjectsPath)
+        urlScheme = try container.decode(String.self, forKey: .urlScheme)
+        enabled = try container.decode(Bool.self, forKey: .enabled)
+        
+        // 优先读取 prefixes 数组，如果没有则读取旧的 prefix
+        if let prefixesArray = try? container.decode([String].self, forKey: .prefixes) {
+            prefixes = prefixesArray
+        } else if let singlePrefix = try? container.decode(String.self, forKey: .prefix) {
+            prefixes = [singlePrefix]
+        } else {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath,
+                                    debugDescription: "无法找到 prefixes 或 prefix 字段")
+            )
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(prefixes, forKey: .prefixes)
+        try container.encode(type, forKey: .type)
+        try container.encode(appPath, forKey: .appPath)
+        try container.encode(recentProjectsPath, forKey: .recentProjectsPath)
+        try container.encode(urlScheme, forKey: .urlScheme)
+        try container.encode(enabled, forKey: .enabled)
+    }
+    
+    /// 获取主关键词（用于缓存键和路径构建）
+    var primaryPrefix: String {
+        return prefixes.first ?? "unknown"
+    }
 }
 
 /// IDE 配置文件根结构
@@ -72,7 +115,7 @@ class IDEProjectService {
                     let config = try JSONDecoder().decode(IDEConfigFile.self, from: data)
                     ideConfigs = config.ides.filter { $0.enabled }
                     log("✅ IDE 配置加载成功: \(path)")
-                    log("   支持的 IDE: \(ideConfigs.map { "\($0.prefix):\($0.name)" }.joined(separator: ", "))")
+                    log("   支持的 IDE: \(ideConfigs.map { "\($0.primaryPrefix):\($0.name) (\($0.prefixes.joined(separator: ",")))" }.joined(separator: ", "))")
                     return
                 } catch {
                     log("⚠️ IDE 配置解析失败: \(error)", level: .warning)
@@ -92,28 +135,44 @@ class IDEProjectService {
     
     // MARK: - 配置获取
     
-    /// 根据前缀获取 IDE 配置
-    func getConfig(for prefix: String) -> IDEConfig? {
-        return ideConfigs.first(where: { $0.prefix == prefix })
+    /// 根据关键词获取 IDE 配置（支持前缀/后缀匹配）
+    func getConfig(for keyword: String) -> IDEConfig? {
+        let lowerKeyword = keyword.lowercased()
+        return ideConfigs.first(where: { config in
+            config.prefixes.contains(where: { $0.lowercased() == lowerKeyword })
+        })
     }
     
-    // MARK: - 前缀匹配
+    // MARK: - 前缀/后缀匹配
     
-    /// 检查查询是否以 IDE 前缀开头
-    /// - Returns: (前缀, 搜索关键词) 或 nil
-    func parseIDEPrefix(query: String) -> (prefix: String, keyword: String, config: IDEConfig)? {
+    /// 检查查询是否包含 IDE 关键词（支持前缀/后缀）
+    /// - Returns: (匹配的关键词, 搜索关键词, 配置) 或 nil
+    func parseIDEPrefix(query: String) -> (matchedKeyword: String, keyword: String, config: IDEConfig)? {
         let trimmed = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let parts = trimmed.split(separator: " ").map { String($0) }
+        
+        guard !parts.isEmpty else { return nil }
         
         for config in ideConfigs {
-            let prefixWithSpace = config.prefix + " "
-            if trimmed.hasPrefix(prefixWithSpace) {
-                let keyword = String(trimmed.dropFirst(prefixWithSpace.count))
-                    .trimmingCharacters(in: .whitespaces)
-                return (config.prefix, keyword, config)
-            }
-            // 也支持只输入前缀（显示所有项目）
-            if trimmed == config.prefix {
-                return (config.prefix, "", config)
+            for prefix in config.prefixes {
+                let lowerPrefix = prefix.lowercased()
+                
+                // 情兵1: 前缀匹配 - "前缀 关键词"
+                if parts.count >= 2 && parts[0] == lowerPrefix {
+                    let keyword = parts.dropFirst().joined(separator: " ").trimmingCharacters(in: .whitespaces)
+                    return (lowerPrefix, keyword, config)
+                }
+                
+                // 情兵2: 后缀匹配 - "关键词 后缀"
+                if parts.count >= 2 && parts.last == lowerPrefix {
+                    let keyword = parts.dropLast().joined(separator: " ").trimmingCharacters(in: .whitespaces)
+                    return (lowerPrefix, keyword, config)
+                }
+                
+                // 情兵3: 只输入关键词（显示所有项目）
+                if parts.count == 1 && parts[0] == lowerPrefix {
+                    return (lowerPrefix, "", config)
+                }
             }
         }
         
@@ -142,12 +201,8 @@ class IDEProjectService {
         return Array(allMatched.prefix(10))
     }
 
-    /// 搜索指定 IDE 的项目（用于魔法前缀搜索）
-    func searchProjects(prefix: String, keyword: String) -> [IDEProject] {
-        guard let config = ideConfigs.first(where: { $0.prefix == prefix }) else {
-            return []
-        }
-        
+    /// 搜索指定 IDE 的项目（用于魔法关键词搜索）
+    func searchProjects(keyword: String, config: IDEConfig) -> [IDEProject] {
         // 获取或加载项目列表
         let projects = getProjects(for: config)
         
@@ -168,8 +223,10 @@ class IDEProjectService {
     
     /// 获取指定 IDE 的项目列表
     private func getProjects(for config: IDEConfig) -> [IDEProject] {
+        let cacheKey = config.primaryPrefix
+        
         // 检查缓存
-        if let cached = cacheQueue.sync(execute: { projectCache[config.prefix] }) {
+        if let cached = cacheQueue.sync(execute: { projectCache[cacheKey] }) {
             return cached
         }
         
@@ -178,7 +235,7 @@ class IDEProjectService {
         
         // 缓存结果
         cacheQueue.async { [weak self] in
-            self?.projectCache[config.prefix] = projects
+            self?.projectCache[cacheKey] = projects
         }
         
         return projects
@@ -253,7 +310,7 @@ class IDEProjectService {
                                     name: projectName,
                                     path: path,
                                     ideName: config.name,
-                                    prefix: config.prefix,
+                                    prefix: config.primaryPrefix,
                                     appPath: (config.appPath as NSString).expandingTildeInPath,
                                     urlScheme: config.urlScheme,
                                     appIcon: NSWorkspace.shared.icon(forFile: (config.appPath as NSString).expandingTildeInPath)
@@ -335,7 +392,7 @@ class IDEProjectService {
                     name: projectName,
                     path: fullPath,
                     ideName: config.name,
-                    prefix: config.prefix,
+                    prefix: config.primaryPrefix,
                     appPath: (config.appPath as NSString).expandingTildeInPath,
                     urlScheme: config.urlScheme,
                     appIcon: NSWorkspace.shared.icon(forFile: (config.appPath as NSString).expandingTildeInPath)
