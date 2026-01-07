@@ -179,57 +179,80 @@ class SearchEngine {
         // 关键修复：完全不匹配（分数=0）的结果直接过滤掉
         let matchedResults = uniqueResults.filter { $0.score > 0 }
         
-        // 智能排序：结合匹配分数、类型优先级和使用历史
-        let sorted = matchedResults.sorted { a, b in
-            // 性能优化：只对高分匹配的结果计算使用权重，避免不必要的计算
-            let highScoreThreshold = 50.0
-            let aIsHighScore = a.score >= highScoreThreshold
-            let bIsHighScore = b.score >= highScoreThreshold
-            
-            // 如果只有一个高分匹配，优先显示它
-            if aIsHighScore && !bIsHighScore {
-                return true
+        // 如果没有任何匹配结果，提供一个跳转到 Google 搜索的默认选项
+        let results: [SearchResult]
+        if matchedResults.isEmpty {
+            let trimmedKeyword = keyword.trimmingCharacters(in: .whitespaces)
+            if trimmedKeyword.isEmpty {
+                results = []
+            } else {
+                let googleQuery = trimmedKeyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmedKeyword
+                let title = "在 Google 搜索 “\(trimmedKeyword)”"
+                let subtitle = "Google 搜索: \(trimmedKeyword)"
+                let urlString = "https://www.google.com/search?q=\(googleQuery)"
+                let icon = NSImage(systemSymbolName: "globe", accessibilityDescription: "Google 搜索")
+                let googleResult = SearchResult(
+                    title: title,
+                    subtitle: subtitle,
+                    path: urlString,
+                    type: .url,
+                    icon: icon,
+                    score: 80.0
+                )
+                results = [googleResult]
             }
-            if !aIsHighScore && bIsHighScore {
-                return false
-            }
-            
-            // 两个都是高分匹配，考虑使用历史
-            if aIsHighScore && bIsHighScore {
-                // 获取使用权重
-                let aWeight = UsageHistory.shared.getUsageWeight(path: a.path)
-                let bWeight = UsageHistory.shared.getUsageWeight(path: b.path)
+        } else {
+            // 智能排序：结合匹配分数、类型优先级和使用历史
+            let sorted = matchedResults.sorted { a, b in
+                // 性能优化：只对高分匹配的结果计算使用权重，避免不必要的计算
+                let highScoreThreshold = 50.0
+                let aIsHighScore = a.score >= highScoreThreshold
+                let bIsHighScore = b.score >= highScoreThreshold
                 
-                // 如果使用权重差异较大，优先按权重排序
-                if abs(aWeight - bWeight) > 1.0 {
-                    return aWeight > bWeight
+                // 如果只有一个高分匹配，优先显示它
+                if aIsHighScore && !bIsHighScore {
+                    return true
+                }
+                if !aIsHighScore && bIsHighScore {
+                    return false
                 }
                 
-                // 否则按类型优先级
+                // 两个都是高分匹配，考虑使用历史
+                if aIsHighScore && bIsHighScore {
+                    // 获取使用权重
+                    let aWeight = UsageHistory.shared.getUsageWeight(path: a.path)
+                    let bWeight = UsageHistory.shared.getUsageWeight(path: b.path)
+                    
+                    // 如果使用权重差异较大，优先按权重排序
+                    if abs(aWeight - bWeight) > 1.0 {
+                        return aWeight > bWeight
+                    }
+                    
+                    // 否则按类型优先级
+                    let aTypePriority = typePriority(a.type)
+                    let bTypePriority = typePriority(b.type)
+                    
+                    if aTypePriority != bTypePriority {
+                        return aTypePriority < bTypePriority
+                    }
+                    
+                    // 同类型下，按匹配分数
+                    return a.score > b.score
+                }
+                
+                // 两个都是低分匹配，直接按分数排序，忽略使用历史
+                if a.score != b.score {
+                    return a.score > b.score
+                }
+                
+                // 分数相同，按类型优先级
                 let aTypePriority = typePriority(a.type)
                 let bTypePriority = typePriority(b.type)
-                
-                if aTypePriority != bTypePriority {
-                    return aTypePriority < bTypePriority
-                }
-                
-                // 同类型下，按匹配分数
-                return a.score > b.score
+                return aTypePriority < bTypePriority
             }
             
-            // 两个都是低分匹配，直接按分数排序，忽略使用历史
-            if a.score != b.score {
-                return a.score > b.score
-            }
-            
-            // 分数相同，按类型优先级
-            let aTypePriority = typePriority(a.type)
-            let bTypePriority = typePriority(b.type)
-            return aTypePriority < bTypePriority
+            results = Array(sorted.prefix(10))
         }
-        
-        let results = Array(sorted.prefix(10))
-        
         // 缓存结果
         lastQuery = query
         lastResults = results
