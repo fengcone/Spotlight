@@ -290,7 +290,79 @@ class SearchViewController: ObservableObject {
                 }
             }
             onDismiss?()
+        case .dingTalk:
+            // 钉钉搜索：运行 AppleScript
+            let keyword = result.path
+            runDingTalkSearchScript(keyword: keyword)
+            onDismiss?()
         }
+    }
+    
+    private func runDingTalkSearchScript(keyword: String) {
+        log("🤖 尝试钉钉搜索自动化: \(keyword)")
+        
+        // 1. 将关键词存入剪贴板
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(keyword, forType: .string)
+
+        // 2. 唤起钉钉
+        if let dingApp = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == "com.alibaba.DingTalkMac" || $0.localizedName?.contains("DingTalk") == true }) {
+            dingApp.activate()
+        } else {
+            // 如果没运行，尝试通过 URL 唤起
+            if let url = URL(string: "dingtalk://") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+
+        // 3. 延迟执行模拟按键（等待窗口获得焦点）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            // 检查权限
+            if !AXIsProcessTrusted() {
+                log("❌ 缺少辅助功能权限！请在系统设置中授予 Spotlight 辅助功能权限。", level: .error)
+                return
+            }
+            
+            log("⌨️ 1. 发送 Cmd+F")
+            self.simulateCommandKey(key: 0x03) // F
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                log("⌨️ 2. 发送 Cmd+V (粘贴内容)")
+                self.simulateCommandKey(key: 0x09) // V
+                
+                // 关键点：给钉钉更长的时间去模糊匹配联系人列表
+                log("⏳ 等待钉钉搜索响应...")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    log("⌨️ 3. 发送 Enter (确认搜索结果)")
+                    self.simulateReturnKey()
+                    log("✅ 自动化序列执行完毕")
+                }
+            }
+        }
+    }
+
+    // 模拟 Command + Key
+    private func simulateCommandKey(key: CGKeyCode) {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        let down = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true)
+        let up = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false)
+        
+        down?.flags = .maskCommand
+        up?.flags = .maskCommand
+        
+        down?.post(tap: .cghidEventTap)
+        up?.post(tap: .cghidEventTap)
+    }
+
+    // 模拟回车
+    private func simulateReturnKey() {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        let down = CGEvent(keyboardEventSource: source, virtualKey: 0x24, keyDown: true) // Return key code 36
+        let up = CGEvent(keyboardEventSource: source, virtualKey: 0x24, keyDown: false)
+        
+        down?.post(tap: .cghidEventTap)
+        up?.post(tap: .cghidEventTap)
     }
     
     func dismiss() {

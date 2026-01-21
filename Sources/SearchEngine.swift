@@ -9,6 +9,7 @@ enum SearchResultType {
     case file
     case dictionary  // 词典翻译
     case ideProject  // IDE 项目
+    case dingTalk    // 钉钉搜索
 }
 
 // 搜索结果
@@ -84,6 +85,7 @@ class SearchEngine {
         case chromeBookmark         // Chrome 书签 (ch)
         case chromeHistory          // Chrome 历史 (hi)
         case dictionary             // 词典 (di)
+        case dingTalk               // 钉钉搜索 (ding)
     }
     
     /// 解析查询字符串，提取关键词和过滤器
@@ -93,6 +95,12 @@ class SearchEngine {
         // 优先检查是否包含 IDE 关键词（支持前缀/后缀）
         if let ideMatch = IDEProjectService.shared.parseIDEPrefix(query: trimmed) {
             return (ideMatch.keyword, .ideProject(ideMatch.config))
+        }
+        
+        // 检查前缀匹配 (例如 "ding zhangsan")
+        if trimmed.lowercased().hasPrefix("ding ") {
+            let keyword = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+            return (keyword, .dingTalk)
         }
         
         // 其他魔法后缀匹配
@@ -164,6 +172,18 @@ class SearchEngine {
         case .dictionary:
             // 只搜索词典
             combined = await searchDictionary(query: keyword)
+            
+        case .dingTalk:
+            // 钉钉搜索结果
+            let dingResult = SearchResult(
+                title: "在钉钉中搜索 “\(keyword)”",
+                subtitle: "使用 AppleScript 自动跳转聊天窗口",
+                path: keyword, // 直接存关键词
+                type: .dingTalk,
+                icon: NSWorkspace.shared.icon(forFile: "/Applications/iDingTalk.app"),
+                score: 100.0
+            )
+            return [dingResult]
         }
         
         // 去重：相同 path 只保留一个
@@ -268,6 +288,7 @@ class SearchEngine {
         switch type {
         case .application: return 1
         case .ideProject: return 1  // IDE 项目与应用同级
+        case .dingTalk: return 1    // 钉钉搜索也设为最高优先级
         case .dictionary: return 2  // 词典翻译
         case .url: return 3  // 书签和历史都是 url
         case .file: return 4
