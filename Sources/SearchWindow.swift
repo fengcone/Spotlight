@@ -301,8 +301,19 @@ class SearchViewController: ObservableObject {
     private func runDingTalkSearchScript(keyword: String) {
         log("🤖 尝试钉钉搜索自动化: \(keyword)")
         
-        // 1. 将关键词存入剪贴板
+        // 0. 备份剪贴板原有内容
         let pasteboard = NSPasteboard.general
+        let originalItems = pasteboard.pasteboardItems?.compactMap { item -> NSPasteboardItem? in
+            let newItem = NSPasteboardItem()
+            for type in item.types {
+                if let data = item.data(forType: type) {
+                    newItem.setData(data, forType: type)
+                }
+            }
+            return newItem
+        }
+        
+        // 1. 将关键词存入剪贴板
         pasteboard.clearContents()
         pasteboard.setString(keyword, forType: .string)
 
@@ -321,6 +332,8 @@ class SearchViewController: ObservableObject {
             // 检查权限
             if !AXIsProcessTrusted() {
                 log("❌ 缺少辅助功能权限！请在系统设置中授予 Spotlight 辅助功能权限。", level: .error)
+                // 恢复剪贴板
+                self.restorePasteboard(originalItems: originalItems)
                 return
             }
             
@@ -337,9 +350,23 @@ class SearchViewController: ObservableObject {
                     log("⌨️ 3. 发送 Enter (确认搜索结果)")
                     self.simulateReturnKey()
                     log("✅ 自动化序列执行完毕")
+                    
+                    // 4. 恢复剪贴板原有内容
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        self.restorePasteboard(originalItems: originalItems)
+                        log("📋 剪贴板已恢复")
+                    }
                 }
             }
         }
+    }
+    
+    // 恢复剪贴板内容
+    private func restorePasteboard(originalItems: [NSPasteboardItem]?) {
+        guard let items = originalItems, !items.isEmpty else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects(items)
     }
 
     // 模拟 Command + Key
