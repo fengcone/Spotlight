@@ -23,13 +23,11 @@
 - **Chrome 历史** - 智能访问频率排序
 - **词典翻译** - 英文单词即时翻译
 - **IDE 项目** - 快速打开 CLion、PyCharm、GoLand 项目
+- **钉钉搜索** - 自动跳转到钉钉搜索联系人
 
 ### ⚡️ 魔法后缀
 使用特殊后缀精确过滤搜索结果：
-- `关键词 ap` - 只搜索应用程序
-- `关键词 ch` - 只搜索 Chrome 书签
-- `关键词 hi` - 只搜索浏览历史
-- `关键词 di` - 只搜索词典
+- `关键词 ding` - 在钉钉中搜索联系人
 - `关键词 cl/qo/py/gl` - 搜索对应 IDE 的项目
 
 ### 🎨 现代化界面
@@ -118,6 +116,9 @@ chrome ap       → 只显示 Chrome 应用
 
 # 搜索 CLion 项目
 myproject cl    → 打开 CLion 中的 myproject
+
+# 钉钉搜索
+张三 ding       → 在钉钉中搜索联系人"张三"
 ```
 
 ### 设置快捷键
@@ -172,19 +173,24 @@ Spotlight/
    - 扫描 `/Applications`、`~/Applications`、`/System/Applications`
    - 提取应用元数据和图标
 
-2. **IDE 项目** (高优先级)
-   - 支持 CLion、PyCharm、GoLand 等
+2. **IDE 项目** (最高优先级)
+   - 支持 CLion、PyCharm、GoLand、VSCode 等
    - 通过 URL Scheme 打开项目
 
-3. **词典翻译** (中优先级)
+3. **钉钉搜索** (最高优先级)
+   - 自动跳转到钉钉搜索联系人
+   - 使用 AppleScript 自动化操作
+   - 剪贴板内容自动备份与恢复
+
+4. **词典翻译** (中优先级)
    - 系统词典服务
    - 显示音标和详细释义
 
-4. **Chrome 书签** (中优先级)
+5. **Chrome 书签** (中优先级)
    - 从 `~/Documents/Spotlight/bookmarks_*.html` 读取
    - 需手动导出书签
 
-5. **Chrome 历史** (低优先级)
+6. **Chrome 历史** (低优先级)
    - 读取 `~/Library/Application Support/Google/Chrome/Default/History`
    - 按访问频率智能排序
    - 定时刷新（每 30 秒）
