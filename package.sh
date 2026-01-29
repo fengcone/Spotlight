@@ -41,6 +41,7 @@ SOURCES=(
     "Sources/DictionaryService.swift"
     "Sources/IDEProjectService.swift"
     "Sources/ChromeTabsService.swift"
+    "Sources/PinyinHelper.swift"
 )
 
 # =============================================================================

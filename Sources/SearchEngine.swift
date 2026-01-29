@@ -786,7 +786,7 @@ class SearchEngine {
         return min(minScore + matchBonus, 100.0)
     }
     
-    /// 单关键词匹配（严格子串匹配）
+    /// 单关键词匹配（支持拼音增强）
     private func singleKeywordMatch(query: String, target: String) -> Double {
         guard !query.isEmpty, !target.isEmpty else { return 0 }
         
@@ -805,8 +805,20 @@ class SearchEngine {
             return 80.0
         }
         
-        // 不再支持逐字符匹配，避免误匹配
-        // 例如 "wlcb" 不应该匹配到散落的 w, l, c, b 字母
+        // 拼音增强匹配（全拼）
+        let targetPinyin = PinyinHelper.shared.toPinyin(target)
+        if targetPinyin.contains(query) {
+            return 75.0  // 拼音匹配分数略低于原文匹配
+        }
+        
+        // 拼音首字母匹配（仅对短查询词有效，避免误匹配）
+        if query.count <= 6 {
+            let targetInitials = PinyinHelper.shared.toPinyinInitials(target)
+            if targetInitials.contains(query) {
+                return 70.0  // 首字母匹配分数更低
+            }
+        }
+        
         return 0
     }
     

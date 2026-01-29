@@ -206,13 +206,11 @@ class ChromeTabsService {
 
     /// 检查标签页是否匹配查询关键词
     private func matchQuery(keywords: [String], tab: ChromeTab) -> Bool {
-        let lowerTitle = tab.title.lowercased()
-        let lowerUrl = tab.url.lowercased()
-
         // 所有关键词都必须匹配（AND 逻辑）
         for keyword in keywords {
-            let titleMatch = singleKeywordMatch(keyword: keyword, target: lowerTitle)
-            let urlMatch = singleKeywordMatch(keyword: keyword, target: lowerUrl)
+            // 使用 PinyinHelper 进行拼音增强匹配
+            let titleMatch = PinyinHelper.shared.matches(query: keyword, target: tab.title)
+            let urlMatch = tab.url.lowercased().contains(keyword)
 
             // 标题或 URL 任一匹配即可
             if !titleMatch && !urlMatch {
@@ -221,30 +219,6 @@ class ChromeTabsService {
         }
 
         return true
-    }
-
-    /// 单关键词匹配
-    private func singleKeywordMatch(keyword: String, target: String) -> Bool {
-        if target.isEmpty || keyword.isEmpty {
-            return false
-        }
-
-        // 精确匹配
-        if target == keyword {
-            return true
-        }
-
-        // 前缀匹配
-        if target.hasPrefix(keyword) {
-            return true
-        }
-
-        // 包含匹配
-        if target.contains(keyword) {
-            return true
-        }
-
-        return false
     }
 
     // MARK: - 公共接口
