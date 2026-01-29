@@ -295,6 +295,19 @@ class SearchViewController: ObservableObject {
             let keyword = result.path
             runDingTalkSearchScript(keyword: keyword)
             onDismiss?()
+        case .chromeTab:
+            // Chrome 标签页：激活已打开的标签
+            if result.path.hasPrefix("chromeTab://") {
+                let tabId = String(result.path.dropFirst(12))  // 去掉 "chromeTab://" (长度12)
+                if let tab = ChromeTabsService.shared.getTab(byId: tabId) {
+                    ChromeTabsService.shared.activateTab(tab)
+                    onDismiss?()
+                } else {
+                    log("⚠️ 未找到标签页: \(tabId)", level: .warning)
+                    // 标签页可能已关闭，刷新缓存
+                    ChromeTabsService.shared.refreshTabs()
+                }
+            }
         }
     }
     

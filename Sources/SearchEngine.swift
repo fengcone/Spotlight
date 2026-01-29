@@ -10,6 +10,7 @@ enum SearchResultType {
     case dictionary  // 词典翻译
     case ideProject  // IDE 项目
     case dingTalk    // 钉钉搜索
+    case chromeTab   // Chrome 已打开标签
 }
 
 // 搜索结果
@@ -26,6 +27,7 @@ struct SearchResult: Identifiable {
 // 搜索引擎
 class SearchEngine {
     private let configManager: ConfigManager
+    private let chromeTabsService = ChromeTabsService.shared
     private var applicationCache: [ApplicationInfo] = []
     private var browserHistoryCache: [BrowserHistoryItem] = []
     private var browserBookmarksCache: [BrowserBookmarkItem] = []
@@ -149,9 +151,10 @@ class SearchEngine {
             let appResults = searchApplications(query: keyword)
             let dictResults = await searchDictionary(query: keyword)
             let ideProjectResults = searchAllIDEProjects(query: keyword)
+            let chromeTabResults = searchChromeTabs(query: keyword)  // 新增
             let bookmarkResults = searchChromeBookmarks(query: keyword)
             let historyResults = configManager.browserHistoryEnabled ? searchBrowserHistory(query: keyword) : []
-            combined = appResults + dictResults + ideProjectResults + bookmarkResults + historyResults
+            combined = appResults + chromeTabResults + dictResults + ideProjectResults + bookmarkResults + historyResults
             
         case .ideProject(let config):
             // 只搜索指定 IDE 的项目
@@ -286,6 +289,7 @@ class SearchEngine {
     // 类型优先级：数字越小优先级越高
     private func typePriority(_ type: SearchResultType) -> Int {
         switch type {
+        case .chromeTab: return 1   // Chrome 已打开标签 - 最高优先级
         case .application: return 1
         case .ideProject: return 1  // IDE 项目与应用同级
         case .dingTalk: return 1    // 钉钉搜索也设为最高优先级
@@ -334,7 +338,29 @@ class SearchEngine {
             )
         }
     }
-    
+
+    // MARK: - Chrome 标签页搜索
+
+    /// 搜索 Chrome 已打开的标签页
+    private func searchChromeTabs(query: String) -> [SearchResult] {
+        let tabs = chromeTabsService.searchTabs(query: query)
+        let chromeIcon = NSWorkspace.shared.icon(forFile: "/Applications/Google Chrome.app")
+
+        return tabs.enumerated().map { index, tab in
+            // 按顺序递减分数，第一个最高
+            let score = 98.0 - Double(index)
+
+            return SearchResult(
+                title: "⚡ \(tab.title)",  // ⚡ 表示快速跳转
+                subtitle: tab.url,
+                path: "chromeTab://\(tab.id)",  // 特殊协议标记
+                type: .chromeTab,
+                icon: chromeIcon,
+                score: score
+            )
+        }
+    }
+
     // MARK: - 词典搜索
     
     private func searchDictionary(query: String) async -> [SearchResult] {

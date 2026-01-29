@@ -40,6 +40,7 @@ SOURCES=(
     "Sources/UsageHistory.swift"
     "Sources/DictionaryService.swift"
     "Sources/IDEProjectService.swift"
+    "Sources/ChromeTabsService.swift"
 )
 
 # =============================================================================
@@ -159,6 +160,8 @@ do_package() {
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Spotlight 需要控制 Google Chrome 以获取和切换已打开的标签页。</string>
 </dict>
 </plist>
 EOF
@@ -200,6 +203,10 @@ show_usage() {
     echo ""
     echo "   2. 完全磁盘访问权限 (推荐)"
     echo "      系统设置 → 隐私与安全性 → 完全磁盘访问权限"
+    echo ""
+    echo "   3. 自动化权限 (Chrome 标签切换功能需要)"
+    echo "      系统设置 → 隐私与安全性 → 自动化"
+    echo "      确保 Spotlight → Google Chrome 已勾选"
 }
 
 # =============================================================================
