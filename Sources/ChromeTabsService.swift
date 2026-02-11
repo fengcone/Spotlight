@@ -121,6 +121,12 @@ class ChromeTabsService {
         // 遍历列表中的每一项
         // AppleScript 列表是 1-indexed，numberOfItems 返回实际数量
         let itemCount = result.numberOfItems
+
+        // 防御性检查：numberOfItems 可能为 0（空列表），此时 1...0 会崩溃
+        guard itemCount > 0 else {
+            return nil
+        }
+
         for i in 1...itemCount {
             guard let item = result.atIndex(i) else { continue }
 

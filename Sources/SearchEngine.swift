@@ -348,7 +348,8 @@ class SearchEngine {
 
         return tabs.enumerated().map { index, tab in
             // 按顺序递减分数，第一个最高
-            let score = 98.0 - Double(index)
+            // 基础分数设为 120，确保 Chrome 已打开标签优先于书签(100)和历史(156)
+            let score = 120.0 - Double(index) * 0.5  // 缓慢递减，保持多个标签都有较高分数
 
             return SearchResult(
                 title: "⚡ \(tab.title)",  // ⚡ 表示快速跳转
